@@ -27,43 +27,6 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
 	}
 }
 
-inline void tridag(
-    const vector<REAL>&   a,   // size [n]
-    const vector<REAL>&   b,   // size [n]
-    const vector<REAL>&   c,   // size [n]
-    const vector<REAL>&   r,   // size [n]
-    const int             n,
-          vector<REAL>&   u,   // size [n]
-          vector<REAL>&   uu   // size [n] temporary
-) {
-    int    i, offset;
-    REAL   beta;
-
-    u[0]  = r[0];
-    uu[0] = b[0];
-
-    for(i=1; i<n; i++) {
-        beta  = a[i] / uu[i-1];
-
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
-    }
-
-#if 1
-    // X) this is a backward recurrence
-    u[n-1] = u[n-1] / uu[n-1];
-    for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
-    }
-#else
-    // Hint: X) can be written smth like (once you make a non-constant)
-    for(i=0; i<n; i++) a[i] =  u[n-1-i];
-    a[0] = a[0] / uu[n-1];
-    for(i=1; i<n; i++) a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
-    for(i=0; i<n; i++) u[i] = a[n-1-i];
-#endif
-}
-
 
 void
 rollback( const unsigned g, PrivGlobs& globs ) {
