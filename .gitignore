@@ -284,5 +284,11 @@ TSWLatexianTemp*
 # KBibTeX
 *~[0-9]*
 
+# Sublime
+*.sublime-project
+*.sublime-workspace
+sftp-config.json
+SublimeBuildScript.sh
+
 # auto folder when using emacs and auctex 
 /auto/*

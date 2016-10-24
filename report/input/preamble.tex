@@ -1,0 +1,74 @@
+% The article class is per default; onesided, openany (as it does not know about
+% chapters).
+\documentclass[a4paper,oneside,9pt]{extarticle}
+
+% For hyphenation, special characters, etc. in the specified languages.
+\usepackage[english]{babel}
+
+% https://en.wikibooks.org/wiki/LaTeX/Fonts#Font_encoding
+\usepackage[T1]{fontenc}
+
+% https://en.wikibooks.org/wiki/LaTeX/Special_Characters
+\usepackage[utf8]{inputenc}
+
+% Fonts
+\usepackage{mathpazo}
+%\usepackage[scaled=0.9]{beramono} % causes \ttfamily to produce output to the Bera Mono font
+%\usepackage[scaled=1.04]{couriers} % causes \ttfamily to produce output to the Bera Mono font
+\renewcommand{\ttdefault}{pcr}
+
+% Adding some basic math (operatorname in case-analysis tables)
+\usepackage{mathtools}
+
+% Show only equation numbers if referenced
+\mathtoolsset{showonlyrefs}
+
+% Comments
+\usepackage{comment}
+
+% Nice rules in tables
+\usepackage{booktabs}
+% Dashed lines in tables \cdashline, \hdashline & :
+\usepackage{arydshln}
+
+% For including urls
+\usepackage{url}
+
+% boldface caption labels
+\usepackage[labelfont=bf]{caption}
+\captionsetup{aboveskip=5pt, belowskip=0pt}
+\usepackage{subcaption}
+
+% Bibliography
+% https://en.wikibooks.org/wiki/LaTeX/Bibliography_Management
+%\usepackage{natbib}
+
+%% Playing around with titling
+\usepackage{authblk}
+
+% Inline Graphviz
+\usepackage{dot2texi}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+
+\title{
+  \huge \bfseries Programming Massive Parallel Hardware \\ \vspace{0.1cm}
+  \Large \bfseries Exam Group Project
+}
+
+%% Some hacking was necessary
+\author{
+  %% Students
+  \normalsize Arni Asgeirsson \quad Rasmus Klett Mortensen \\ % \vspace{0.2cm}
+  \small \texttt{\{lwf986,rzw867\}@alumni.ku.dk} \\ \vspace{0.1cm}
+% Supervisors
+  \emph{Lector} \\
+  \normalsize Cosmin E. Oancea
+}
+
+\affil{
+  \normalsize Department of Computer Science, University of Copenhagen, Denmark % \\ \vspace{0.2cm}
+%  \small \texttt{ \{fdg890,fjc657\}@alumni.ku.dk}
+}
+
+\date{\vspace{-2em}} %% probably not the correct or most graceful way to handle this
