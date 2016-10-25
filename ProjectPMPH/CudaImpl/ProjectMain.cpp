@@ -7,6 +7,7 @@ int main()
 {
     unsigned int OUTER_LOOP_COUNT, NUM_X, NUM_Y, NUM_T; 
 	const REAL s0 = 0.03, strike = 0.03, t = 5.0, alpha = 0.2, nu = 0.6, beta = 0.5;
+    bool is_valid = false;
 
     readDataSet( OUTER_LOOP_COUNT, NUM_X, NUM_Y, NUM_T ); 
 
@@ -27,11 +28,12 @@ int main()
         elapsed = t_diff.tv_sec*1e6+t_diff.tv_usec;
 
         // validation and writeback of the result
-        bool is_valid = validate   ( res, OUTER_LOOP_COUNT );
+        is_valid = validate   ( res, OUTER_LOOP_COUNT );
         writeStatsAndResult( is_valid, res, OUTER_LOOP_COUNT, 
                              NUM_X, NUM_Y, NUM_T, false, 1/*Ps*/, elapsed );        
     }
 
-    return 0;
+    // Negating because Bash has weird booleans
+    return ! is_valid;
 }
 
