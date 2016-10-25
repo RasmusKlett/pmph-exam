@@ -19,9 +19,6 @@ struct PrivGlobs {
     unsigned            myXindex;  
     unsigned            myYindex;
 
-    //	variable
-    vector<vector<REAL> > myResult; // [numX][numY]
-
     //	coeffs
     vector<vector<REAL> >   myVarX; // [numX][numY]
     vector<vector<REAL> >   myVarY; // [numX][numY]
@@ -54,16 +51,13 @@ struct PrivGlobs {
 
         this->  myVarX.resize(numX);
         this->  myVarY.resize(numX);
-        this->myResult.resize(numX);
         for(unsigned i=0;i<numX;++i) {
             this->  myVarX[i].resize(numY);
             this->  myVarY[i].resize(numY);
-            this->myResult[i].resize(numY);
         }
 
     }
 } __attribute__ ((aligned (128)));
-
 
 void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t, 
                 const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs   
@@ -75,30 +69,31 @@ void initOperator(  const vector<REAL>& x,
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs);
 
-void setPayoff(const REAL strike, PrivGlobs& globs );
+void setPayoff(const REAL strike, PrivGlobs& globs, vector<vector<REAL > >& myResult);
 
 void tridag(
     const vector<REAL>&   a,   // size [n]
     const vector<REAL>&   b,   // size [n]
     const vector<REAL>&   c,   // size [n]
+
     const vector<REAL>&   r,   // size [n]
     const int             n,
           vector<REAL>&   u,   // size [n]
           vector<REAL>&   uu   // size [n] temporary
 );
 
-void rollback( const unsigned g, PrivGlobs& globs );
+void rollback( const unsigned g, PrivGlobs& globs, vector<vector<REAL > >& myResult);
 
 REAL   value(   PrivGlobs    globs,
                 const REAL s0,
-                const REAL strike, 
                 const REAL t, 
                 const REAL alpha, 
                 const REAL nu, 
                 const REAL beta,
                 const unsigned int numX,
                 const unsigned int numY,
-                const unsigned int numT
+                const unsigned int numT,
+                vector<vector<REAL > >& myResult
             );
 
 void run_OrigCPU(  

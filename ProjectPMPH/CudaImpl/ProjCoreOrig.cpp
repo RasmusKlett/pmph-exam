@@ -1,10 +1,19 @@
 #include "ProjHelperFun.h"
 #include "Constants.h"
 #include "TridagPar.h"
+#include <vector>
+
+void printArray(vector<REAL> arr) {
+    printf("[");
+    for (const auto& elem : arr) {
+        printf("%f, ", elem);
+    }
+    printf("]\n");
+}
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
 {
-    for(unsigned i=0;i<globs.myX.size();++i)
+    for(unsigned i=0;i<globs.myX.size();++i) {
         for(unsigned j=0;j<globs.myY.size();++j) {
             globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])   
                                           + globs.myY[j]             
@@ -15,58 +24,22 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
                                           - 0.5*nu*nu*globs.myTimeline[g] )
                                     ); // nu*nu
         }
+    }
 }
 
-void setPayoff(const REAL strike, PrivGlobs& globs )
+void setPayoff(const REAL strike, PrivGlobs& globs, vector<vector<REAL > >& myResult)
 {
-	for(unsigned i=0;i<globs.myX.size();++i)
-	{
+	for(unsigned i=0;i<globs.myX.size();++i) {
 		REAL payoff = max(globs.myX[i]-strike, (REAL)0.0);
-		for(unsigned j=0;j<globs.myY.size();++j)
-			globs.myResult[i][j] = payoff;
+		for(unsigned j=0;j<globs.myY.size();++j) {
+            //printf("%i,%i: %f\n", i, j, payoff);
+			myResult[i][j] = payoff;
+        }
 	}
 }
 
-inline void tridag(
-    const vector<REAL>&   a,   // size [n]
-    const vector<REAL>&   b,   // size [n]
-    const vector<REAL>&   c,   // size [n]
-    const vector<REAL>&   r,   // size [n]
-    const int             n,
-          vector<REAL>&   u,   // size [n]
-          vector<REAL>&   uu   // size [n] temporary
-) {
-    int    i, offset;
-    REAL   beta;
-
-    u[0]  = r[0];
-    uu[0] = b[0];
-
-    for(i=1; i<n; i++) {
-        beta  = a[i] / uu[i-1];
-
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
-    }
-
-#if 1
-    // X) this is a backward recurrence
-    u[n-1] = u[n-1] / uu[n-1];
-    for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
-    }
-#else
-    // Hint: X) can be written smth like (once you make a non-constant)
-    for(i=0; i<n; i++) a[i] =  u[n-1-i];
-    a[0] = a[0] / uu[n-1];
-    for(i=1; i<n; i++) a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
-    for(i=0; i<n; i++) u[i] = a[n-1-i];
-#endif
-}
-
-
 void
-rollback( const unsigned g, PrivGlobs& globs ) {
+rollback( const unsigned g, PrivGlobs& globs, vector<vector<REAL> >& myResult) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
 
@@ -84,36 +57,35 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     //	explicit x
     for(i=0;i<numX;i++) {
         for(j=0;j<numY;j++) {
-            u[j][i] = dtInv*globs.myResult[i][j];
+            u[j][i] = dtInv*myResult[i][j];
 
             if(i > 0) { 
               u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] ) 
-                            * globs.myResult[i-1][j];
+                            * myResult[i-1][j];
             }
             u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
-                            * globs.myResult[i][j];
+                            * myResult[i][j];
             if(i < numX-1) {
               u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
-                            * globs.myResult[i+1][j];
+                            * myResult[i+1][j];
             }
         }
     }
 
     //	explicit y
-    for(j=0;j<numY;j++)
-    {
+    for(j=0;j<numY;j++) {
         for(i=0;i<numX;i++) {
             v[i][j] = 0.0;
 
             if(j > 0) {
               v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][0] )
-                         *  globs.myResult[i][j-1];
+                         *  myResult[i][j-1];
             }
             v[i][j]  +=   ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][1] )
-                         *  globs.myResult[i][j];
+                         *  myResult[i][j];
             if(j < numY-1) {
               v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
-                         *  globs.myResult[i][j+1];
+                         *  myResult[i][j+1];
             }
             u[j][i] += v[i][j]; 
         }
@@ -138,34 +110,33 @@ rollback( const unsigned g, PrivGlobs& globs ) {
             c[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
         }
 
-        for(j=0;j<numY;j++)
+        for(j=0;j<numY;j++) {
             y[j] = dtInv*u[j][i] - 0.5*v[i][j];
+        }
 
         // here yy should have size [numY]
-        tridagPar(a,b,c,y,numY,globs.myResult[i],yy);
+        tridagPar(a,b,c,y,numY,myResult[i],yy);
     }
 }
 
 REAL   value(   PrivGlobs    globs,
                 const REAL s0,
-                const REAL strike, 
                 const REAL t, 
                 const REAL alpha, 
                 const REAL nu, 
                 const REAL beta,
                 const unsigned int numX,
                 const unsigned int numY,
-                const unsigned int numT
+                const unsigned int numT,
+                vector<vector<REAL > >& myResult
 ) {	
 
-    setPayoff(strike, globs);
-    for(int i = globs.myTimeline.size()-2;i>=0;--i)
-    {
+    for(int i = globs.myTimeline.size()-2;i>=0;--i) {
         updateParams(i,alpha,beta,nu,globs);
-        rollback(i, globs);
+        rollback(i, globs, myResult);
     }
 
-    return globs.myResult[globs.myXindex][globs.myYindex];
+    return myResult[globs.myXindex][globs.myYindex];
 }
 
 void   run_OrigCPU(  
@@ -186,12 +157,22 @@ void   run_OrigCPU(
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
 
+    vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
+
+    // printArray(myResult[1][1]);
     for( unsigned i = 0; i < outer; ++ i ) {
         REAL strike = 0.001*i;
-        res[i] = value( globs, s0, strike, t,
-                        alpha, nu,    beta,
-                        numX,  numY,  numT );
+        setPayoff(strike, globs, myResult[i]);
     }
+
+    for( unsigned i = 0; i < outer; ++ i ) {
+        res[i] = value( globs, s0, t,
+                        alpha, nu,    beta,
+                        numX,  numY,  numT, myResult[i] );
+    }
+    // for (const auto& vec : myResult) {
+    //     printArray(vec);
+    // }
 }
 
 //#endif // PROJ_CORE_ORIG
