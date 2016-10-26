@@ -165,14 +165,23 @@ void   run_OrigCPU(
         setPayoff(strike, globs, myResult[i]);
     }
 
-    for( unsigned i = 0; i < outer; ++ i ) {
+    for(int j = globs.myTimeline.size()-2;j>=0;--j) {
+        for( unsigned i = 0; i < outer; ++ i ) {
+            updateParams(j,alpha,beta,nu,globs);
+            rollback(j, globs, myResult[i]);
+        }
+
+        // res[i] = myResult[i][globs.myXindex][globs.myYindex];
+
+        /* Original 
         res[i] = value( globs, s0, t,
                         alpha, nu,    beta,
                         numX,  numY,  numT, myResult[i] );
+        */
     }
-    // for (const auto& vec : myResult) {
-    //     printArray(vec);
-    // }
+    for( unsigned i = 0; i < outer; ++ i ) {
+        res[i] = myResult[i][globs.myXindex][globs.myYindex];
+    }
 }
 
 //#endif // PROJ_CORE_ORIG
