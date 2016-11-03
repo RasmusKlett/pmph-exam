@@ -1,25 +1,25 @@
-CXX        = g++
+CXX        = nvcc
 LIB        = -L$(OPENCL_LIBDIR) -lOpenCL
-CXXFLAGS   = -fopenmp -O3 -DWITH_FLOATS=0 -std=c++11
+CXXFLAGS   = -O3 -DWITH_FLOATS=0
 
 INCLUDES    += -I ../include
 GPU_OPTS   = -D lgWARP=5
 
-SOURCES_CPP =ProjectMain.cpp ProjHelperFun.cpp ProjCoreOrig.cpp 
-HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/OpenmpUtil.h
-OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
+SOURCES_CPP =ProjectMain.cu ProjHelperFun.cu ProjCoreOrig.cu kernels.cu
+HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h
+#OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
 EXECUTABLE  =runproject
 
 
-default: cpu
+default: gpu
 
-.cpp.o: $(SOURCES_CPP) $(HELPERS)
-	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
+.cu.o: $(SOURCES_CPP) $(HELPERS)
+	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c $@ $<
 
 
-cpu: $(EXECUTABLE)
-$(EXECUTABLE): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(EXECUTABLE) $(OBJECTS)
+gpu: $(EXECUTABLE)
+$(EXECUTABLE):
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(EXECUTABLE) ProjectMain.cu
 
 
 run_small: $(EXECUTABLE)
