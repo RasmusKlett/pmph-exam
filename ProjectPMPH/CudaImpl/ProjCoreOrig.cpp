@@ -21,9 +21,9 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
 
     vector<vector<vector<REAL> > > u(outer, vector<vector<REAL> > (numY, vector<REAL>(numX))); // [outer][numY][numX]
     vector<vector<vector<REAL> > > v(outer, vector<vector<REAL> > (numX, vector<REAL>(numY))); // [outer][numX][numY]
-    vector<vector<REAL> > a(outer, vector<REAL>(numZ)); // [outer][max(numX,numY)]
-    vector<vector<REAL> > b(outer, vector<REAL>(numZ)); // [outer][max(numX,numY)]
-    vector<vector<REAL> > c(outer, vector<REAL>(numZ)); // [outer][max(numX,numY)]
+    vector<REAL> a(numZ); // [max(numX,numY)]
+    vector<REAL> b(numZ); // [max(numX,numY)]
+    vector<REAL> c(numZ); // [max(numX,numY)]
     vector<vector<REAL> > y(outer, vector<REAL>(numZ)); // [outer][max(numX,numY)]
 
     vector<vector<REAL> > yy(outer, vector<REAL>(numZ));  // temporary used in tridag  // [max(numX,numY)]
@@ -71,21 +71,21 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
         // Privatize a,b,c (size will be (outer*?)*numY*numX)
         for(j=0;j<numY;j++) {
             for(i=0;i<numX;i++) {  // here a, b,c should have size [numX]
-                a[o][i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
-                b[o][i] = dtInv - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][1]);
-                c[o][i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
+                a[i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
+                b[i] = dtInv - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][1]);
+                c[i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
             }
             // here yy should have size [numX]
-            tridagPar(a[o],b[o],c[o],u[o][j],numX,u[o][j],yy[o]);
+            tridagPar(a,b,c,u[o][j],numX,u[o][j],yy[o]);
         }
 
         //  implicit y
         // TODO reuse arrays for abc from above
         for(i=0;i<numX;i++) {
             for(j=0;j<numY;j++) {  // here a, b, c should have size [numY]
-                a[o][j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
-                b[o][j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
-                c[o][j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
+                a[j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
+                b[j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
+                c[j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
             }
 
             for(j=0;j<numY;j++) {
@@ -93,7 +93,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
             }
 
             // here yy should have size [numY]
-            tridagPar(a[o],b[o],c[o],y[o],numY,myResult[o][i],yy[o]);
+            tridagPar(a,b,c,y[o],numY,myResult[o][i],yy[o]);
         }
     }
 }
