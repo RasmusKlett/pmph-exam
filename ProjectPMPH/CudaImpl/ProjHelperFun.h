@@ -67,10 +67,6 @@ void initOperator(  const vector<REAL>& x,
                     vector<vector<REAL> >& Dxx
                  );
 
-void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs);
-
-void setPayoff(const REAL strike, PrivGlobs& globs, vector<vector<REAL > >& myResult);
-
 void tridag(
     const vector<REAL>&   a,   // size [n]
     const vector<REAL>&   b,   // size [n]
@@ -83,18 +79,6 @@ void tridag(
 );
 
 void rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer);
-
-REAL   value(   PrivGlobs    globs,
-                const REAL s0,
-                const REAL t, 
-                const REAL alpha, 
-                const REAL nu, 
-                const REAL beta,
-                const unsigned int numX,
-                const unsigned int numY,
-                const unsigned int numT,
-                vector<vector<REAL > >& myResult
-            );
 
 void run_OrigCPU(  
                 const unsigned int&   outer,
