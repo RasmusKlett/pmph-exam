@@ -19,6 +19,7 @@ void rollbackUandV(const unsigned int outer, unsigned int numX) {
     dim3 block(32, 32, 1), grid(dimx, dimy, 1);
 
 
+    printf("\nprinting just before kernel\n");
     initUAndV2Dim<<<grid, block>>>();
 
 }

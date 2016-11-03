@@ -78,6 +78,7 @@ void readDataSet(   unsigned int& outer,
         bool atr_ok = true;
 
         atr_ok  = outer > 0;
+        #pragma diag_suppress boolean_controlling_expr_is_constant
         assert(atr_ok && "Outer loop count less than 0!");
 
         atr_ok  = (num_X > 0) && (num_X <= MAX_VAL); 

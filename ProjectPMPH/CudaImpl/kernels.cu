@@ -1,4 +1,4 @@
 __global__ void initUAndV2Dim () {
-        printf("printing from kernel");
+        printf("\n###############printing from kernel\n");
 
 }
