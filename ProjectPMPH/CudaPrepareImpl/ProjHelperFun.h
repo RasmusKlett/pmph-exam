@@ -37,13 +37,13 @@ struct PrivGlobs {
                 const unsigned int& numT ) {
         this->  myX.resize(numX);
         this->myDxx.resize(numX);
-        for(int k=0; k<numX; k++) {
+        for(unsigned k=0; k<numX; k++) {
             this->myDxx[k].resize(4);
         }
 
         this->  myY.resize(numY);
         this->myDyy.resize(numY);
-        for(int k=0; k<numY; k++) {
+        for(unsigned k=0; k<numY; k++) {
             this->myDyy[k].resize(4);
         }
 
