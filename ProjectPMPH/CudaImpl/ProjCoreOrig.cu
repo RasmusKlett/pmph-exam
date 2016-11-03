@@ -150,8 +150,8 @@ void   run_OrigCPU(
 
         rollback(g, globs, myResult, outer);
     }
-    for( unsigned i = 0; i < outer; ++ i ) {
-        res[i] = myResult[i][globs.myXindex][globs.myYindex];
+    for( unsigned o = 0; o < outer; ++o ) {
+        res[o] = myResult[o][globs.myXindex][globs.myYindex];
     }
 }
 
