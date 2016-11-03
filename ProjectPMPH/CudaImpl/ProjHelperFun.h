@@ -82,7 +82,7 @@ void tridag(
           vector<REAL>&   uu   // size [n] temporary
 );
 
-void rollback( const unsigned g, PrivGlobs& globs, vector<vector<REAL > >& myResult);
+void rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer);
 
 REAL   value(   PrivGlobs    globs,
                 const REAL s0,

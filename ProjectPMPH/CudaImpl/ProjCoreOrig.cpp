@@ -12,83 +12,92 @@ void printArray(vector<REAL> arr) {
 }
 
 void
-rollback( const unsigned g, PrivGlobs& globs, vector<vector<REAL> >& myResult) {
-    unsigned numX = globs.myX.size(),
-             numY = globs.myY.size();
+rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer) {
+    for( unsigned o = 0; o < outer; ++ o )
+    {
+        unsigned numX = globs.myX.size(),
+                 numY = globs.myY.size();
 
-    unsigned numZ = max(numX,numY);
+        unsigned numZ = max(numX,numY);
 
-    unsigned i, j;
+        unsigned i, j;
 
-    REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
+        REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
-    vector<vector<REAL> > u(numY, vector<REAL>(numX));   // [numY][numX]
-    vector<vector<REAL> > v(numX, vector<REAL>(numY));   // [numX][numY]
-    vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)] 
-    vector<REAL> yy(numZ);  // temporary used in tridag  // [max(numX,numY)]
+        vector<vector<REAL> > u(numY, vector<REAL>(numX));   // [numY][numX]
+        vector<vector<REAL> > v(numX, vector<REAL>(numY));   // [numX][numY]
+        vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)]
+        vector<REAL> yy(numZ);  // temporary used in tridag  // [max(numX,numY)]
 
-    //	explicit x
-    for(i=0;i<numX;i++) {
-        for(j=0;j<numY;j++) {
-            u[j][i] = dtInv*myResult[i][j];
-
-            if(i > 0) { 
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] ) 
-                            * myResult[i-1][j];
-            }
-            u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
-                            * myResult[i][j];
-            if(i < numX-1) {
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
-                            * myResult[i+1][j];
-            }
-        }
-    }
-
-    //	explicit y
-    for(j=0;j<numY;j++) {
+        //  explicit x
+        // TODO rollback_lifted: this loop then need an OUTER loop
         for(i=0;i<numX;i++) {
-            v[i][j] = 0.0;
+            for(j=0;j<numY;j++) {
+                u[j][i] = dtInv*myResult[o][i][j];
 
-            if(j > 0) {
-              v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][0] )
-                         *  myResult[i][j-1];
+                if(i > 0) {
+                  u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
+                                * myResult[o][i-1][j];
+                }
+                u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
+                                * myResult[o][i][j];
+                if(i < numX-1) {
+                  u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
+                                * myResult[o][i+1][j];
+                }
             }
-            v[i][j]  +=   ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][1] )
-                         *  myResult[i][j];
-            if(j < numY-1) {
-              v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
-                         *  myResult[i][j+1];
-            }
-            u[j][i] += v[i][j]; 
-        }
-    }
-
-    //	implicit x
-    for(j=0;j<numY;j++) {
-        for(i=0;i<numX;i++) {  // here a, b,c should have size [numX]
-            a[i] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
-            b[i] = dtInv - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][1]);
-            c[i] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
-        }
-        // here yy should have size [numX]
-        tridagPar(a,b,c,u[j],numX,u[j],yy);
-    }
-
-    //	implicit y
-    for(i=0;i<numX;i++) { 
-        for(j=0;j<numY;j++) {  // here a, b, c should have size [numY]
-            a[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
-            b[j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
-            c[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
         }
 
+        //  explicit y
+        // TODO rollback_lifted: this loop then need an OUTER loop
         for(j=0;j<numY;j++) {
-            y[j] = dtInv*u[j][i] - 0.5*v[i][j];
+            for(i=0;i<numX;i++) {
+                v[i][j] = 0.0;
+
+                if(j > 0) {
+                  v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][0] )
+                             *  myResult[o][i][j-1];
+                }
+                v[i][j]  +=   ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][1] )
+                             *  myResult[o][i][j];
+                if(j < numY-1) {
+                  v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
+                             *  myResult[o][i][j+1];
+                }
+                u[j][i] += v[i][j];
+            }
         }
 
-        // here yy should have size [numY]
-        tridagPar(a,b,c,y,numY,myResult[i],yy);
+        //  implicit x
+        // TODO rollback_lifted: this loop then need an OUTER loop
+        // Privatize a,b,c (size will be (outer*?)*numY*numX)
+        for(j=0;j<numY;j++) {
+            for(i=0;i<numX;i++) {  // here a, b,c should have size [numX]
+                a[i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
+                b[i] = dtInv - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][1]);
+                c[i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
+            }
+            // here yy should have size [numX]
+            tridagPar(a,b,c,u[j],numX,u[j],yy);
+        }
+
+        //  implicit y
+        // TODO rollback_lifted: this loop then need an OUTER loop
+        // Privatize a,b,c (size will be (outer*?)*numY*numX) reuse arrays from above
+        for(i=0;i<numX;i++) {
+            for(j=0;j<numY;j++) {  // here a, b, c should have size [numY]
+                a[j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
+                b[j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
+                c[j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
+            }
+
+            for(j=0;j<numY;j++) {
+                y[j] = dtInv*u[j][i] - 0.5*v[i][j];
+            }
+
+            // here yy should have size [numY]
+            tridagPar(a,b,c,y,numY,myResult[o][i],yy);
+        }
     }
 }
 
@@ -134,9 +143,7 @@ void   run_OrigCPU(
             }
         }
 
-        // TODO implement rollback lifted, where this outer loop is inside the function.
-        for( unsigned ir = 0; ir < outer; ++ ir )
-            rollback(g, globs, myResult[ir]);
+        rollback(g, globs, myResult, outer);
     }
     for( unsigned i = 0; i < outer; ++ i ) {
         res[i] = myResult[i][globs.myXindex][globs.myYindex];
