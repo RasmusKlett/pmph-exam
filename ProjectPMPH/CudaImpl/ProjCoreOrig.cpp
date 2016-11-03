@@ -13,17 +13,14 @@ void printArray(vector<REAL> arr) {
 
 void
 rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer) {
+    unsigned numX = globs.myX.size(),
+             numY = globs.myY.size();
+    unsigned numZ = max(numX,numY);
+    unsigned i, j;
+    REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
+
     for( unsigned o = 0; o < outer; ++ o )
     {
-        unsigned numX = globs.myX.size(),
-                 numY = globs.myY.size();
-
-        unsigned numZ = max(numX,numY);
-
-        unsigned i, j;
-
-        REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
-
         vector<vector<REAL> > u(numY, vector<REAL>(numX));   // [numY][numX]
         vector<vector<REAL> > v(numX, vector<REAL>(numY));   // [numX][numY]
         vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)]
