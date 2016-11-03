@@ -168,19 +168,23 @@ void   run_OrigCPU(
         }
     }
 
-    for(int j = globs.myTimeline.size()-2;j>=0;--j) {
-        for( unsigned i = 0; i < outer; ++ i ) {
-            updateParams(j,alpha,beta,nu,globs);
-            rollback(j, globs, myResult[i]);
+    for(int g = globs.myTimeline.size()-2;g>=0;--g) {
+        for(unsigned i=0;i<globs.myX.size();++i) {
+            for(unsigned j=0;j<globs.myY.size();++j) {
+                globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])
+                                              + globs.myY[j]
+                                              - 0.5*nu*nu*globs.myTimeline[g] )
+                                        );
+                globs.myVarY[i][j] = exp(2.0*(  alpha*log(globs.myX[i])
+                                              + globs.myY[j]
+                                              - 0.5*nu*nu*globs.myTimeline[g] )
+                                        ); // nu*nu
+            }
         }
 
-        // res[i] = myResult[i][globs.myXindex][globs.myYindex];
-
-        /* Original 
-        res[i] = value( globs, s0, t,
-                        alpha, nu,    beta,
-                        numX,  numY,  numT, myResult[i] );
-        */
+        // TODO implement rollback lifted, where this outer loop is inside the function.
+        for( unsigned ir = 0; ir < outer; ++ ir )
+            rollback(g, globs, myResult[ir]);
     }
     for( unsigned i = 0; i < outer; ++ i ) {
         res[i] = myResult[i][globs.myXindex][globs.myYindex];
