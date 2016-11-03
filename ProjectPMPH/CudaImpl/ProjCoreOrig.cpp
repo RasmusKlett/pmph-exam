@@ -160,9 +160,12 @@ void   run_OrigCPU(
     vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
     // printArray(myResult[1][1]);
-    for( unsigned i = 0; i < outer; ++ i ) {
-        REAL strike = 0.001*i;
-        setPayoff(strike, globs, myResult[i]);
+    for( unsigned ir = 0; ir < outer; ++ ir ) {
+        for(unsigned i=0;i<globs.myX.size();++i) {
+            for(unsigned j=0;j<globs.myY.size();++j) {
+                myResult[ir][i][j] = max(globs.myX[i]-(0.001*ir), (REAL)0.0);;
+            }
+        }
     }
 
     for(int j = globs.myTimeline.size()-2;j>=0;--j) {
