@@ -30,9 +30,9 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
 
     for( unsigned o = 0; o < outer; ++ o )
     {
-        //  explicit x
         for(i=0;i<numX;i++) {
             for(j=0;j<numY;j++) {
+                // explicit x
                 u[o][j][i] = dtInv*myResult[o][i][j];
 
                 if(i > 0) {
@@ -45,12 +45,8 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
                   u[o][j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
                                 * myResult[o][i+1][j];
                 }
-            }
-        }
 
-        //  explicit y
-        for(j=0;j<numY;j++) {
-            for(i=0;i<numX;i++) {
+                // explicit y
                 v[o][i][j] = 0.0;
 
                 if(j > 0) {
@@ -68,7 +64,6 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
         }
 
         //  implicit x
-        // Privatize a,b,c (size will be (outer*?)*numY*numX)
         for(j=0;j<numY;j++) {
             for(i=0;i<numX;i++) {  // here a, b,c should have size [numX]
                 a[i] =       - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
@@ -80,7 +75,6 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
         }
 
         //  implicit y
-        // TODO reuse arrays for abc from above
         for(i=0;i<numX;i++) {
             for(j=0;j<numY;j++) {  // here a, b, c should have size [numY]
                 a[j] =       - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
