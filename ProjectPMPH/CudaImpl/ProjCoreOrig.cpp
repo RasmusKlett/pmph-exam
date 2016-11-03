@@ -11,33 +11,6 @@ void printArray(vector<REAL> arr) {
     printf("]\n");
 }
 
-void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
-{
-    for(unsigned i=0;i<globs.myX.size();++i) {
-        for(unsigned j=0;j<globs.myY.size();++j) {
-            globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])   
-                                          + globs.myY[j]             
-                                          - 0.5*nu*nu*globs.myTimeline[g] )
-                                    );
-            globs.myVarY[i][j] = exp(2.0*(  alpha*log(globs.myX[i])   
-                                          + globs.myY[j]             
-                                          - 0.5*nu*nu*globs.myTimeline[g] )
-                                    ); // nu*nu
-        }
-    }
-}
-
-void setPayoff(const REAL strike, PrivGlobs& globs, vector<vector<REAL > >& myResult)
-{
-	for(unsigned i=0;i<globs.myX.size();++i) {
-		REAL payoff = max(globs.myX[i]-strike, (REAL)0.0);
-		for(unsigned j=0;j<globs.myY.size();++j) {
-            //printf("%i,%i: %f\n", i, j, payoff);
-			myResult[i][j] = payoff;
-        }
-	}
-}
-
 void
 rollback( const unsigned g, PrivGlobs& globs, vector<vector<REAL> >& myResult) {
     unsigned numX = globs.myX.size(),
@@ -119,26 +92,6 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<REAL> >& myResult) {
     }
 }
 
-REAL   value(   PrivGlobs    globs,
-                const REAL s0,
-                const REAL t, 
-                const REAL alpha, 
-                const REAL nu, 
-                const REAL beta,
-                const unsigned int numX,
-                const unsigned int numY,
-                const unsigned int numT,
-                vector<vector<REAL > >& myResult
-) {	
-
-    for(int i = globs.myTimeline.size()-2;i>=0;--i) {
-        updateParams(i,alpha,beta,nu,globs);
-        rollback(i, globs, myResult);
-    }
-
-    return myResult[globs.myXindex][globs.myYindex];
-}
-
 void   run_OrigCPU(  
                 const unsigned int&   outer,
                 const unsigned int&   numX,
@@ -159,7 +112,6 @@ void   run_OrigCPU(
 
     vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
-    // printArray(myResult[1][1]);
     for( unsigned ir = 0; ir < outer; ++ ir ) {
         for(unsigned i=0;i<globs.myX.size();++i) {
             for(unsigned j=0;j<globs.myY.size();++j) {
