@@ -121,14 +121,14 @@ void   run_OrigCPU(
     }
 
     for(int g = globs.myTimeline.size()-2;g>=0;--g) {
-        for(unsigned i=0;i<globs.myX.size();++i) {
-            for(unsigned j=0;j<globs.myY.size();++j) {
-                globs.myVarX[i][j] = exp(2.0*(  beta*log(globs.myX[i])
-                                              + globs.myY[j]
+        for(unsigned x = 0; x < globs.myX.size(); ++x) {
+            for(unsigned y = 0; y < globs.myY.size(); ++y) {
+                globs.myVarX[x][y] = exp(2.0*(  beta*log(globs.myX[x])
+                                              + globs.myY[y]
                                               - 0.5*nu*nu*globs.myTimeline[g] )
                                         );
-                globs.myVarY[i][j] = exp(2.0*(  alpha*log(globs.myX[i])
-                                              + globs.myY[j]
+                globs.myVarY[x][y] = exp(2.0*(  alpha*log(globs.myX[x])
+                                              + globs.myY[y]
                                               - 0.5*nu*nu*globs.myTimeline[g] )
                                         ); // nu*nu
             }
