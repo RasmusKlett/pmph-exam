@@ -150,22 +150,41 @@ void   run_OrigCPU(
         cudaErrchkAPI(cudaFree(d_myX));
     }
 
-    for(int g = globs.myTimeline.size()-2;g>=0;--g) {
-        for(unsigned x = 0; x < globs.myX.size(); ++x) {
-            for(unsigned y = 0; y < globs.myY.size(); ++y) {
-                globs.myVarX[x][y] = exp(2.0*(  beta*log(globs.myX[x])
-                                              + globs.myY[y]
-                                              - 0.5*nu*nu*globs.myTimeline[g] )
-                                        );
-                globs.myVarY[x][y] = exp(2.0*(  alpha*log(globs.myX[x])
-                                              + globs.myY[y]
-                                              - 0.5*nu*nu*globs.myTimeline[g] )
-                                        ); // nu*nu
-            }
-        }
+    REAL *d_myX, *d_myY, *d_myTimeline, *d_myVarX, *d_myVarY;
+    cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myY, numY * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myTimeline, numT * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myVarX, numX * numY * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myVarY, numX * numY * sizeof(REAL)));
 
+    cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
+    cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
+    cudaErrchkAPI(cudaMemcpy(d_myTimeline, globs.myTimeline.data(), numT * sizeof(REAL), cudaMemcpyHostToDevice));
+
+    int T =32;
+    int dimx = ceil(((float)numX) / T);
+    int dimy = ceil(((float)numY) / T);
+    dim3 block(T, T, 1), grid(dimx, dimy, 1);
+
+
+    for(int g = globs.myTimeline.size()-2;g>=0;--g) {
+        {
+            myVarXYKernel<<<grid, block>>>(g, numX, numY, beta, nu, alpha, d_myX, d_myY, d_myTimeline, d_myVarX, d_myVarY);
+            cudaErrchkKernelAndSync();
+
+            copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyDeviceToHost);
+            copy2DVec(d_myVarY, globs.myVarY, cudaMemcpyDeviceToHost);
+        }
         rollback(g, globs, myResult, outer);
     }
+
+    cudaErrchkAPI(cudaFree(d_myX));
+    cudaErrchkAPI(cudaFree(d_myY));
+    cudaErrchkAPI(cudaFree(d_myTimeline));
+    cudaErrchkAPI(cudaFree(d_myVarX));
+    cudaErrchkAPI(cudaFree(d_myVarY));
+
+
     for( unsigned o = 0; o < outer; ++o ) {
         res[o] = myResult[o][globs.myXindex][globs.myYindex];
     }
