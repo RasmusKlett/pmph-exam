@@ -15,9 +15,9 @@ __global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned
 }
 
 __global__ void myVarXYKernel(
-	unsigned int g, unsigned int numX, unsigned int numY,
-	REAL beta, REAL nu, REAL alpha,
-	REAL * myX, REAL *myY, REAL *myTimeline,
+	unsigned int numX, unsigned int numY,
+	REAL beta, REAL nu2t, REAL alpha,
+	REAL * myX, REAL *myY,
 	REAL *myVarX, REAL *myVarY
 	) {
 	int x = threadIdx.x + blockDim.x*blockIdx.x;
@@ -26,11 +26,11 @@ __global__ void myVarXYKernel(
   	if (x < numX && y < numY) {
         myVarX[x * numY + y] = exp(2.0*(  beta*log(myX[x])
 	                                      + myY[y]
-	                                      - 0.5*nu*nu*myTimeline[g] )
+	                                      - nu2t )
 	                                );
         myVarY[x * numY + y] = exp(2.0*(  alpha*log(myX[x])
 	                                      + myY[y]
-	                                      - 0.5*nu*nu*myTimeline[g] )
+	                                      - nu2t )
 	                                ); // nu*nu
 	}
 }

@@ -150,16 +150,14 @@ void   run_OrigCPU(
         cudaErrchkAPI(cudaFree(d_myX));
     }
 
-    REAL *d_myX, *d_myY, *d_myTimeline, *d_myVarX, *d_myVarY;
+    REAL *d_myX, *d_myY, *d_myVarX, *d_myVarY;
     cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
     cudaErrchkAPI(cudaMalloc((void**)&d_myY, numY * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myTimeline, numT * sizeof(REAL)));
     cudaErrchkAPI(cudaMalloc((void**)&d_myVarX, numX * numY * sizeof(REAL)));
     cudaErrchkAPI(cudaMalloc((void**)&d_myVarY, numX * numY * sizeof(REAL)));
 
     cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
     cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
-    cudaErrchkAPI(cudaMemcpy(d_myTimeline, globs.myTimeline.data(), numT * sizeof(REAL), cudaMemcpyHostToDevice));
 
     int T =32;
     int dimx = ceil(((float)numX) / T);
@@ -169,7 +167,8 @@ void   run_OrigCPU(
 
     for(int g = globs.myTimeline.size()-2;g>=0;--g) {
         {
-            myVarXYKernel<<<grid, block>>>(g, numX, numY, beta, nu, alpha, d_myX, d_myY, d_myTimeline, d_myVarX, d_myVarY);
+            REAL nu2t = 0.5 * nu * nu * globs.myTimeline[g];
+            myVarXYKernel<<<grid, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
             cudaErrchkKernelAndSync();
 
             copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyDeviceToHost);
@@ -180,7 +179,6 @@ void   run_OrigCPU(
 
     cudaErrchkAPI(cudaFree(d_myX));
     cudaErrchkAPI(cudaFree(d_myY));
-    cudaErrchkAPI(cudaFree(d_myTimeline));
     cudaErrchkAPI(cudaFree(d_myVarX));
     cudaErrchkAPI(cudaFree(d_myVarY));
 
