@@ -34,3 +34,15 @@ __global__ void myVarXYKernel(
 	                                ); // nu*nu
 	}
 }
+
+__global__ void buildResultKernel(
+	unsigned int outer, unsigned int numX, unsigned int numY,
+	unsigned int myXindex, unsigned int myYindex,
+	REAL *res, REAL *myResult
+	) {
+	const unsigned int o = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (o < outer) {
+        res[o] = myResult[o * numX * numY + myXindex * numY + myYindex];
+    }
+}

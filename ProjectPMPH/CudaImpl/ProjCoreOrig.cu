@@ -183,8 +183,24 @@ void   run_OrigCPU(
     cudaErrchkAPI(cudaFree(d_myVarY));
 
 
-    for( unsigned o = 0; o < outer; ++o ) {
-        res[o] = myResult[o][globs.myXindex][globs.myYindex];
+    {
+        REAL *d_myResult;
+        REAL *d_res;
+        cudaErrchkAPI(cudaMalloc((void**)&d_myResult, outer * numX * numY * sizeof(REAL)));
+        cudaErrchkAPI(cudaMalloc((void**)&d_res, outer * sizeof(REAL)));
+
+        copy3DVec(d_myResult, myResult, cudaMemcpyHostToDevice);
+
+        unsigned int block_size = 256;
+        unsigned int num_blocks = (outer + (block_size -1)) / block_size;
+        
+        buildResultKernel<<<num_blocks, block_size>>>(outer, numX, numY, globs.myXindex, globs.myYindex, d_res, d_myResult);
+        cudaErrchkKernelAndSync();
+
+        cudaMemcpy(res, d_res, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
+
+        cudaErrchkAPI(cudaFree(d_myResult));
+        cudaErrchkAPI(cudaFree(d_res));
     }
 }
 
