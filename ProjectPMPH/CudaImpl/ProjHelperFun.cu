@@ -79,6 +79,32 @@ void initOperator(  const vector<REAL>& x,
     Dxx[n-1][3] = 0.0;
 }
 
+int copy2DVec(REAL* d_ptr, vector<vector<REAL > >& vectors, cudaMemcpyKind command) {
+    REAL* device = d_ptr;
+    int totalSize = 0;
+    for (auto& row : vectors) {
+        REAL* host = row.data();
+        size_t sz = row.size();
+    
+        // cudaMemcpy(host, device, sizeof(REAL)*sz, cudaMemcpyDeviceToHost);
+        if (command == cudaMemcpyDeviceToHost) {
+            cudaMemcpy(host, device, sizeof(REAL)*sz, cudaMemcpyDeviceToHost);
+        } else if (command == cudaMemcpyHostToDevice) {
+            cudaMemcpy(device, host, sizeof(REAL)*sz, command);
+        } else {
+            printf("ERROR: copyVecOfVec command not recognized\n");
+            throw 20;
+        }
+        device += sz;
+        totalSize += sz;
+    }
+    return totalSize;
+}
 
-
-
+void copy3DVec(REAL* d_ptr, vector<vector<vector<REAL > > >& matrixes, cudaMemcpyKind command) {
+    REAL* device = d_ptr;
+    for (auto& matrix : matrixes) {
+        int sz = copy2DVec(device, matrix, command);
+        device += sz;
+    }
+}
