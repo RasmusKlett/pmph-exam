@@ -3,7 +3,7 @@ __global__ void initUAndV2Dim () {
 
 }
 
-__global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned int numY, REAL * myX, REAL * myResult) {
+__global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned int numY, REAL *myX, REAL *myResult) {
 	int o = threadIdx.x + blockDim.x*blockIdx.x;
   	int x = threadIdx.y + blockDim.y*blockIdx.y;
 
@@ -17,7 +17,7 @@ __global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned
 __global__ void myVarXYKernel(
 	unsigned int numX, unsigned int numY,
 	REAL beta, REAL nu2t, REAL alpha,
-	REAL * myX, REAL *myY,
+	REAL *myX, REAL *myY,
 	REAL *myVarX, REAL *myVarY
 	) {
 	int x = threadIdx.x + blockDim.x*blockIdx.x;
