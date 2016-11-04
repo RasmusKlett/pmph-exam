@@ -115,7 +115,7 @@ bool validate( const REAL* res, const int& N ) {
 
     for ( int i = 0; i < N; i ++ ) {
         float err = fabs(std_res[i] - res[i]);
-        if ( isnan(res[i]) || isinf(res[i]) || err > EPS ) {
+        if ( std::isnan(res[i]) || std::isinf(res[i]) || err > EPS ) {
             is_valid = false;
             fprintf(stderr, "Error[%d] = %f, EPS = %f!\n", i, err, EPS);
             break;
