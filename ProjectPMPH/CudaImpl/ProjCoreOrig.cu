@@ -3,7 +3,8 @@
 #include "TridagPar.h"
 #include "kernels.cu"
 #include "ProjHelperFun.cu"
-#include <vector> 
+#include "cudaErrHandling.cu"
+#include <vector>
 
 // void printArray(vector<REAL> arr) {
 //     printf("[");
@@ -106,15 +107,15 @@ rollbackUandV(outer, numX);
     }
 }
 
-void   run_OrigCPU(  
+void   run_OrigCPU(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
                 const unsigned int&   numY,
                 const unsigned int&   numT,
                 const REAL&           s0,
-                const REAL&           t, 
-                const REAL&           alpha, 
-                const REAL&           nu, 
+                const REAL&           t,
+                const REAL&           alpha,
+                const REAL&           nu,
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
 ) {
@@ -126,12 +127,27 @@ void   run_OrigCPU(
 
     vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
-    for( unsigned o = 0; o < outer; ++ o ) {
-        for(unsigned x = 0; x < globs.myX.size(); ++x) {
-            for(unsigned y = 0; y < globs.myY.size(); ++y) {
-                myResult[o][x][y] = max(globs.myX[x]-(0.001*o), (REAL)0.0);;
-            }
-        }
+    // Compute myResult from a 2d kernel
+    {
+        REAL *d_myResult;
+        cudaErrchkAPI(cudaMalloc((void**)&d_myResult, outer * numX * numY * sizeof(REAL)));
+
+        REAL *d_myX;
+        cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
+        cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
+
+        int T =32;
+        int dimy = ceil(((float)outer) / T);
+        int dimx = ceil(((float)numX) / T);
+        dim3 block(T, T, 1), grid(dimx, dimy, 1);
+
+        myResultKernel2D<<<grid, block>>>(outer, numX, numY, d_myX, d_myResult);
+        cudaErrchkKernelAndSync();
+
+        copy3DVec(d_myResult, myResult, cudaMemcpyDeviceToHost);
+
+        cudaErrchkAPI(cudaFree(d_myResult));
+        cudaErrchkAPI(cudaFree(d_myX));
     }
 
     for(int g = globs.myTimeline.size()-2;g>=0;--g) {

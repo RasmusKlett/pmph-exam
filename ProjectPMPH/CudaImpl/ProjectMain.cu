@@ -12,6 +12,9 @@ int main()
 
     REAL* res = (REAL*)malloc(OUTER_LOOP_COUNT*sizeof(REAL));
 
+    // Init CUDA
+    cudaFree(0);
+
     {   // Original Program (Sequential CPU Execution)
         cout<<"\n// Running Original, Sequential Project Program"<<endl;
 
