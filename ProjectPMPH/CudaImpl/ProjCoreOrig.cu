@@ -137,8 +137,8 @@ void   run_OrigCPU(
         cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
 
         int T =32;
-        int dimy = ceil(((float)outer) / T);
-        int dimx = ceil(((float)numX) / T);
+        int dimx = ceil(((float)outer) / T);
+        int dimy = ceil(((float)numX) / T);
         dim3 block(T, T, 1), grid(dimx, dimy, 1);
 
         myResultKernel2D<<<grid, block>>>(outer, numX, numY, d_myX, d_myResult);
