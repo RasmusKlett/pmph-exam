@@ -34,3 +34,12 @@ run_large: $(EXECUTABLE)
 clean:
 	rm -f Debug.txt $(EXECUTABLE) $(OBJECTS)
 
+
+profile_small: $(EXECUTABLE)
+	nvprof --profile-child-processes --analysis-metrics -o analysis%p.nvprof make run_small
+
+profile_medium: $(EXECUTABLE)
+	nvprof --profile-child-processes --analysis-metrics -o analysis%p.nvprof make run_medium
+
+profile_large: $(EXECUTABLE)
+	nvprof --profile-child-processes --analysis-metrics -o analysis%p.nvprof make run_large
