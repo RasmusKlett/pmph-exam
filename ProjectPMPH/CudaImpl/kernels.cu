@@ -95,3 +95,62 @@ __global__ void buildResultKernel(
         res[o] = myResult[o * numX * numY + myXindex * numY + myYindex];
     }
 }
+
+__device__ void tridagDevice(
+    REAL*   a,   // size [n]
+    REAL*   b,   // size [n]
+    REAL*   c,   // size [n]
+    REAL*   r,   // size [n]
+    const int n,
+    REAL*   u,   // size [n]
+    REAL*   uu   // size [n] temporary
+) {
+    int    i;
+    REAL   beta;
+
+    u[0]  = r[0];
+    uu[0] = b[0];
+
+    for(i=1; i<n; i++) {
+        beta  = a[i] / uu[i-1];
+
+        uu[i] = b[i] - beta*c[i-1];
+        u[i]  = r[i] - beta*u[i-1];
+    }
+
+    // X) this is a backward recurrence
+    u[n-1] = u[n-1] / uu[n-1];
+    for(i=n-2; i>=0; i--) {
+        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
+    }
+}
+
+__global__ void tridag1(
+    unsigned int outer, unsigned int numX, unsigned int numY, unsigned int numZ,
+    REAL *a, REAL *b, REAL *c,
+    REAL dtInv,
+    REAL *myVarX, REAL *myDxx,
+    REAL *u, REAL *yy
+    ) {
+    int o = threadIdx.x + blockDim.x*blockIdx.x;
+    int y = threadIdx.y + blockDim.y*blockIdx.y;
+
+    if (o < outer && y < numY) {
+        for(unsigned x = 0; x < numX; x++) {
+            // here a, b,c should have size [numX]
+            a[o * numZ * numZ + y * numZ + x] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 0]);
+            b[o * numZ * numZ + y * numZ + x] = dtInv - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 1]);
+            c[o * numZ * numZ + y * numZ + x] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 2]);
+        }
+
+        // here yy should have size [numX]
+        tridagDevice(
+            a + (o * numZ * numZ + y * numZ),
+            b + (o * numZ * numZ + y * numZ),
+            c + (o * numZ * numZ + y * numZ),
+            u + (o * numX * numY + y * numX),
+            numX,
+            u + (o * numX * numY + y * numX),
+            yy+ (o * numZ * numZ + y * numZ));
+    }
+}
