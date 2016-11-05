@@ -9,6 +9,7 @@ SOURCES_CPP =ProjectMain.cu ProjHelperFun.cu ProjCoreOrig.cu kernels.cu
 HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h
 #OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
 EXECUTABLE  =runproject
+PROFILE_COMMAND =nvprof --profile-child-processes --analysis-metrics -o `git log -n 1 --pretty=format:"%h"`analysis%p.nvpp
 
 
 default: gpu
@@ -34,3 +35,12 @@ run_large: $(EXECUTABLE)
 clean:
 	rm -f Debug.txt $(EXECUTABLE) $(OBJECTS)
 
+
+profile_small: $(EXECUTABLE)
+	$(PROFILE_COMMAND) make run_small
+
+profile_medium: $(EXECUTABLE)
+	$(PROFILE_COMMAND) make run_medium
+
+profile_large: $(EXECUTABLE)
+	$(PROFILE_COMMAND) make run_large
