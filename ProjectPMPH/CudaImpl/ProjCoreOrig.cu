@@ -14,19 +14,8 @@
 //     printf("]\n");
 // }
 
-void rollbackUandV(const unsigned int outer, unsigned int numX) {
-    int dimy = outer;//ceil(((float)outer) );
-    int dimx = numX;//ceil(((float)numX) / T);
-    dim3 block(32, 32, 1), grid(dimx, dimy, 1);
-
-
-    printf("\nprinting just before kernel\n");
-    initUAndV2Dim<<<grid, block>>>();
-
-}
-
 void
-rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer) {
+rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, REAL* d_myResult, const unsigned int outer) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
     unsigned numZ = max(numX,numY);
@@ -42,42 +31,56 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
 
     vector<vector<REAL> > yy(outer, vector<REAL>(numZ));  // temporary used in tridag  // [max(numX,numY)]
 
-rollbackUandV(outer, numX);
-    for( unsigned o = 0; o < outer; ++ o )
-    {
-        for(i=0;i<numX;i++) {
-            for(j=0;j<numY;j++) {
-                // explicit x
-                u[o][j][i] = dtInv*myResult[o][i][j];
+    REAL* d_myVarX;
+    REAL* d_myVarY;
+    REAL* d_myDxx;
+    REAL* d_myDyy;
+    REAL* d_u;
+    REAL* d_v;
 
-                if(i > 0) {
-                  u[o][j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
-                                * myResult[o][i-1][j];
-                }
-                u[o][j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
-                                * myResult[o][i][j];
-                if(i < numX-1) {
-                  u[o][j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
-                                * myResult[o][i+1][j];
-                }
 
-                // explicit y
-                v[o][i][j] = 0.0;
+    /*      Allocate device memory  */
+    unsigned long myVarSize = numX * numY * sizeof(REAL);
+    cudaMalloc((void**)&d_myVarX, myVarSize);
+    cudaMalloc((void**)&d_myVarY, myVarSize);
+    unsigned long myDxxSize = numX * 4 * sizeof(REAL);
+    unsigned long myDyySize = numY * 4 * sizeof(REAL);
+    cudaMalloc((void**)&d_myDxx, myDxxSize);
+    cudaMalloc((void**)&d_myDyy, myDyySize);
+    unsigned long myResultSize = outer * numX * numY * sizeof(REAL);
+    cudaMalloc((void**)&d_u, myResultSize);
+    cudaMalloc((void**)&d_v, myResultSize);
 
-                if(j > 0) {
-                  v[o][i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][0] )
-                             *  myResult[o][i][j-1];
-                }
-                v[o][i][j]  +=   ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][1] )
-                             *  myResult[o][i][j];
-                if(j < numY-1) {
-                  v[o][i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
-                             *  myResult[o][i][j+1];
-                }
-                u[o][j][i] += v[o][i][j];
-            }
-        }
+    /*      Copy data to device  */
+    copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyHostToDevice);
+    copy2DVec(d_myVarY, globs.myVarY, cudaMemcpyHostToDevice);
+    copy2DVec(d_myDxx, globs.myDxx, cudaMemcpyHostToDevice);
+    copy2DVec(d_myDyy, globs.myDyy, cudaMemcpyHostToDevice);
+    copy3DVec(d_myResult, myResult, cudaMemcpyHostToDevice);
 
+    /*      Call kernel  */
+    unsigned dim = 32;
+    int dimO = ceil( ((float)outer) / dim );
+    int dimX = ceil( ((float)numX) / dim );
+
+    dim3 block(dim, dim, 1), grid(dimO, dimX, 1);
+
+    initUAndV2Dim<<<grid, block>>>(d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult, outer, numX, numY, dtInv);
+
+    /*      Copy data back to host */
+    copy3DVec(d_u, u, cudaMemcpyDeviceToHost);
+    copy3DVec(d_v, v, cudaMemcpyDeviceToHost);
+
+
+    /*      Free device memory  */
+    cudaFree(d_myVarX);
+    cudaFree(d_myVarY);
+    cudaFree(d_myDxx);
+    cudaFree(d_myDyy);
+    cudaFree(d_u);
+    cudaFree(d_v);
+
+    for( unsigned o = 0; o < outer; ++ o ) {
         //  implicit x
         for(y = 0; y < numY; y++) {
             for(x = 0; x < numX; x++) {  // here a, b,c should have size [numX]
@@ -127,9 +130,9 @@ void   run_OrigCPU(
 
     vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
+    REAL *d_myResult;
     // Compute myResult from a 2d kernel
     {
-        REAL *d_myResult;
         cudaErrchkAPI(cudaMalloc((void**)&d_myResult, outer * numX * numY * sizeof(REAL)));
 
         REAL *d_myX;
@@ -146,7 +149,6 @@ void   run_OrigCPU(
 
         copy3DVec(d_myResult, myResult, cudaMemcpyDeviceToHost);
 
-        cudaErrchkAPI(cudaFree(d_myResult));
         cudaErrchkAPI(cudaFree(d_myX));
     }
 
@@ -164,8 +166,10 @@ void   run_OrigCPU(
             }
         }
 
-        rollback(g, globs, myResult, outer);
+        rollback(g, globs, myResult, d_myResult, outer);
+        // g = -1;
     }
+    cudaFree(d_myResult);
     for( unsigned o = 0; o < outer; ++o ) {
         res[o] = myResult[o][globs.myXindex][globs.myYindex];
     }
