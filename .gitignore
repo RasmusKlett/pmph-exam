@@ -1,6 +1,6 @@
 Debug.txt
 runproject
-*.nvprof
+*.nvpp
 
 ### C++ ###
 # Prerequisites
