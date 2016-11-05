@@ -8,8 +8,9 @@ __global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned
   	int x = threadIdx.y + blockDim.y*blockIdx.y;
 
   	if (o < outer && x < numX) {
+  		REAL v = max(myX[x]-(0.001*o), (REAL)0.0);
         for(unsigned y = 0; y < numY; y++) {
-            myResult[o * numX * numY + x * numY + y] = max(myX[x]-(0.001*o), (REAL)0.0);
+            myResult[o * numX * numY + x * numY + y] = v;
         }
 	}
 }
