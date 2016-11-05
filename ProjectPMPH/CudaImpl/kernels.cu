@@ -154,3 +154,39 @@ __global__ void tridag1(
             yy+ (o * numZ * numZ + y * numZ));
     }
 }
+
+__global__ void tridag2(
+    unsigned int outer, unsigned int numX, unsigned int numY, unsigned int numZ,
+    REAL *a, REAL *b, REAL *c,
+    REAL dtInv,
+    REAL *myVarY, REAL *myDyy,
+    REAL *u, REAL *v, REAL *yy, REAL *_y, REAL *myResult
+    ) {
+
+    int o = threadIdx.x + blockDim.x*blockIdx.x;
+    int x = threadIdx.y + blockDim.y*blockIdx.y;
+
+    if (o < outer && x < numX) {
+        int ox_idx_zz = o * numZ * numZ + x * numZ;
+        for(unsigned y = 0; y < numY; y++) {
+            // here a, b, c should have size [numY]
+            a[ox_idx_zz+y] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
+            b[ox_idx_zz+y] = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
+            c[ox_idx_zz+y] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 2]);
+        }
+
+        for(unsigned y = 0; y < numY; y++) {
+            _y[ox_idx_zz+y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
+        }
+
+        // here yy should have size [numY]
+        tridagDevice(
+            a + (ox_idx_zz),
+            b + (ox_idx_zz),
+            c + (ox_idx_zz),
+            _y+ (ox_idx_zz),
+            numY,
+            myResult + (o * numX * numY + x * numY),
+            yy+ (ox_idx_zz));
+    }
+}

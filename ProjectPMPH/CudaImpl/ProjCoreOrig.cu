@@ -18,7 +18,6 @@ void
 rollback(
                 const unsigned g,
                 PrivGlobs& globs,
-                vector<vector<vector<REAL > > >& myResult,
                 REAL* d_myResult,
                 REAL* d_myVarX,
                 REAL* d_myVarY,
@@ -30,27 +29,13 @@ rollback(
                 REAL* d_b,
                 REAL* d_c,
                 REAL* d_yy,
+                REAL* d__y,
                 const unsigned int outer
 ) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
     unsigned numZ = max(numX,numY);
-    unsigned x, y;
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
-
-    vector<vector<vector<REAL> > > u(outer, vector<vector<REAL> > (numY, vector<REAL>(numX))); // [outer][numY][numX]
-    vector<vector<vector<REAL> > > v(outer, vector<vector<REAL> > (numX, vector<REAL>(numY))); // [outer][numX][numY]
-
-    vector<vector<vector<REAL> > > a(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
-    vector<vector<vector<REAL> > > b(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
-    vector<vector<vector<REAL> > > c(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
-
-    vector<vector<vector<REAL> > > _y(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
-    vector<vector<vector<REAL> > > yy(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // temporary used in tridag  // [outer][numZ][numZ]
-
-
-    /*      Copy data to device  */
-    copy3DVec(d_myResult, myResult, cudaMemcpyHostToDevice);
 
     /*      Call kernel  */
     unsigned dim = 32;
@@ -58,39 +43,12 @@ rollback(
     int dimX = ceil( ((float)numX) / dim );
     int dimY = ceil( ((float)numY) / dim );
 
-    dim3 block(dim, dim, 1), grid(dimO, dimX, 1);
+    dim3 block(dim, dim, 1), gridOX(dimO, dimX, 1);
     dim3 gridOY(dimO, dimY, 1);
 
-    initUAndV2Dim<<<grid, block>>>(d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult, outer, numX, numY, dtInv);
-    tridag1<<<gridOY, block>>>(
-            outer, numX, numY, numZ,
-            d_a, d_b, d_c,
-            dtInv,
-            d_myVarX, d_myDxx,
-            d_u, d_yy
-            );
-
-    /*      Copy data back to host */
-    copy3DVec(d_v, v, cudaMemcpyDeviceToHost);
-    copy3DVec(d_u, u, cudaMemcpyDeviceToHost);
-
-    for( unsigned o = 0; o < outer; ++ o ) {
-        //  implicit y
-        for(x = 0; x < numX; x++) {
-            for(y = 0; y < numY; y++) {  // here a, b, c should have size [numY]
-                a[o][x][y] =       - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][0]);
-                b[o][x][y] = dtInv - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][1]);
-                c[o][x][y] =       - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][2]);
-            }
-
-            for(y = 0; y < numY; y++) {
-                _y[o][x][y] = dtInv*u[o][y][x] - 0.5*v[o][x][y];
-            }
-
-            // here yy should have size [numY]
-            tridagPar(a[o][x],b[o][x],c[o][x],_y[o][x],numY,myResult[o][x],yy[o][x]);
-        }
-    }
+    initUAndV2Dim<<<gridOX, block>>>(d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult, outer, numX, numY, dtInv);
+    tridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_a, d_b, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
+    tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_a, d_b, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d__y, d_myResult);
 }
 
 void   run_OrigCPU(
@@ -111,8 +69,6 @@ void   run_OrigCPU(
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
     int numZ = max(numX, numY);
-
-    vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
     /*      Allocate Device memory */
     REAL *d_myResult, *d_myX, *d_myY, *d_myVarX, *d_myVarY, *d_myDxx, *d_myDyy, *d_u, *d_v;
@@ -135,35 +91,47 @@ void   run_OrigCPU(
     cudaErrchkAPI(cudaMalloc((void**)&d_c, outer * numZ * numZ * sizeof(REAL)));
     REAL *d_yy;
     cudaErrchkAPI(cudaMalloc((void**)&d_yy, outer * numZ * numZ * sizeof(REAL)));
+    REAL *d__y;
+    cudaErrchkAPI(cudaMalloc((void**)&d__y, outer * numZ * numZ * sizeof(REAL)));
 
+    /* Copy initial required data to device */
     copy2DVec(d_myDxx, globs.myDxx, cudaMemcpyHostToDevice);
     copy2DVec(d_myDyy, globs.myDyy, cudaMemcpyHostToDevice);
+    cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
+    cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
 
-    // Compute myResult from a 2d kernel
+    /* Compute myResult from a 2d kernel */
     int dim = 32;
     int dimO = ceil(((float)outer) / dim);
     int dimX = ceil(((float)numX) / dim);
     int dimY = ceil(((float)numY) / dim);
     dim3 block(dim, dim, 1), gridOX(dimO, dimX, 1), gridXY(dimX, dimY, 1);
 
-    cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
-    cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
-
     myResultKernel2D<<<gridOX, block>>>(outer, numX, numY, d_myX, d_myResult);
     cudaErrchkKernelAndSync();
-
-    copy3DVec(d_myResult, myResult, cudaMemcpyDeviceToHost);
 
     for(int g = globs.myTimeline.size()-2;g>=0;--g) {
         {
             REAL nu2t = 0.5 * nu * nu * globs.myTimeline[g];
             myVarXYKernel<<<gridXY, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
             cudaErrchkKernelAndSync();
-
-            copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyDeviceToHost);
-            copy2DVec(d_myVarY, globs.myVarY, cudaMemcpyDeviceToHost);
         }
-        rollback(g, globs, myResult, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_a, d_b, d_c, d_yy, outer);
+        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_a, d_b, d_c, d_yy, d__y, outer);
+    }
+
+    {
+        REAL *d_res;
+        cudaErrchkAPI(cudaMalloc((void**)&d_res, outer * sizeof(REAL)));
+
+        unsigned int block_size = 256;
+        unsigned int num_blocks = (outer + (block_size -1)) / block_size;
+        
+        buildResultKernel<<<num_blocks, block_size>>>(outer, numX, numY, globs.myXindex, globs.myYindex, d_res, d_myResult);
+        cudaErrchkKernelAndSync();
+
+        cudaMemcpy(res, d_res, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
+
+        cudaErrchkAPI(cudaFree(d_res));
     }
 
     cudaErrchkAPI(cudaFree(d_myX));
@@ -174,33 +142,12 @@ void   run_OrigCPU(
     cudaErrchkAPI(cudaFree(d_myDyy));
     cudaErrchkAPI(cudaFree(d_u));
     cudaErrchkAPI(cudaFree(d_v));
-    cudaErrchkAPI(cudaFree(d_myResult));
 
     cudaErrchkAPI(cudaFree(d_a));
     cudaErrchkAPI(cudaFree(d_b));
     cudaErrchkAPI(cudaFree(d_c));
     cudaErrchkAPI(cudaFree(d_yy));
-
-
-    {
-        REAL *d_myResult;
-        REAL *d_res;
-        cudaErrchkAPI(cudaMalloc((void**)&d_myResult, outer * numX * numY * sizeof(REAL)));
-        cudaErrchkAPI(cudaMalloc((void**)&d_res, outer * sizeof(REAL)));
-
-        copy3DVec(d_myResult, myResult, cudaMemcpyHostToDevice);
-
-        unsigned int block_size = 256;
-        unsigned int num_blocks = (outer + (block_size -1)) / block_size;
-        
-        buildResultKernel<<<num_blocks, block_size>>>(outer, numX, numY, globs.myXindex, globs.myYindex, d_res, d_myResult);
-        cudaErrchkKernelAndSync();
-
-        cudaMemcpy(res, d_res, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
-
-        cudaErrchkAPI(cudaFree(d_myResult));
-        cudaErrchkAPI(cudaFree(d_res));
-    }
+    cudaErrchkAPI(cudaFree(d__y));
 }
 
 //#endif // PROJ_CORE_ORIG
