@@ -1,4 +1,5 @@
 #include "ProjHelperFun.h"
+#include "cudaErrHandling.cu"
 
 /**************************/
 /**** HELPER FUNCTIONS ****/
@@ -88,9 +89,9 @@ int copy2DVec(REAL* d_ptr, vector<vector<REAL > >& vectors, cudaMemcpyKind comma
     
         // cudaMemcpy(host, device, sizeof(REAL)*sz, cudaMemcpyDeviceToHost);
         if (command == cudaMemcpyDeviceToHost) {
-            cudaMemcpy(host, device, sizeof(REAL)*sz, cudaMemcpyDeviceToHost);
+            cudaErrchkAPI(cudaMemcpy(host, device, sizeof(REAL)*sz, cudaMemcpyDeviceToHost));
         } else if (command == cudaMemcpyHostToDevice) {
-            cudaMemcpy(device, host, sizeof(REAL)*sz, command);
+            cudaErrchkAPI(cudaMemcpy(device, host, sizeof(REAL)*sz, command));
         } else {
             printf("ERROR: copyVecOfVec command not recognized\n");
             throw 20;
