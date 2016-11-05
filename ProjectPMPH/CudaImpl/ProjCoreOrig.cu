@@ -15,11 +15,23 @@
 // }
 
 void
-rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, REAL* d_myResult, const unsigned int outer) {
+rollback(
+                const unsigned g,
+                PrivGlobs& globs,
+                vector<vector<vector<REAL > > >& myResult,
+                REAL* d_myResult,
+                REAL* d_myVarX,
+                REAL* d_myVarY,
+                REAL* d_myDxx,
+                REAL* d_myDyy,
+                REAL* d_u,
+                REAL* d_v,
+                const unsigned int outer
+) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
     unsigned numZ = max(numX,numY);
-    unsigned x, y, i, j;
+    unsigned x, y;
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     vector<vector<vector<REAL> > > u(outer, vector<vector<REAL> > (numY, vector<REAL>(numX))); // [outer][numY][numX]
@@ -31,31 +43,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
 
     vector<vector<REAL> > yy(outer, vector<REAL>(numZ));  // temporary used in tridag  // [max(numX,numY)]
 
-    REAL* d_myVarX;
-    REAL* d_myVarY;
-    REAL* d_myDxx;
-    REAL* d_myDyy;
-    REAL* d_u;
-    REAL* d_v;
-
-
-    /*      Allocate device memory  */
-    unsigned long myVarSize = numX * numY * sizeof(REAL);
-    cudaMalloc((void**)&d_myVarX, myVarSize);
-    cudaMalloc((void**)&d_myVarY, myVarSize);
-    unsigned long myDxxSize = numX * 4 * sizeof(REAL);
-    unsigned long myDyySize = numY * 4 * sizeof(REAL);
-    cudaMalloc((void**)&d_myDxx, myDxxSize);
-    cudaMalloc((void**)&d_myDyy, myDyySize);
-    unsigned long myResultSize = outer * numX * numY * sizeof(REAL);
-    cudaMalloc((void**)&d_u, myResultSize);
-    cudaMalloc((void**)&d_v, myResultSize);
-
     /*      Copy data to device  */
-    copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyHostToDevice);
-    copy2DVec(d_myVarY, globs.myVarY, cudaMemcpyHostToDevice);
-    copy2DVec(d_myDxx, globs.myDxx, cudaMemcpyHostToDevice);
-    copy2DVec(d_myDyy, globs.myDyy, cudaMemcpyHostToDevice);
     copy3DVec(d_myResult, myResult, cudaMemcpyHostToDevice);
 
     /*      Call kernel  */
@@ -71,14 +59,6 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
     copy3DVec(d_u, u, cudaMemcpyDeviceToHost);
     copy3DVec(d_v, v, cudaMemcpyDeviceToHost);
 
-
-    /*      Free device memory  */
-    cudaFree(d_myVarX);
-    cudaFree(d_myVarY);
-    cudaFree(d_myDxx);
-    cudaFree(d_myDyy);
-    cudaFree(d_u);
-    cudaFree(d_v);
 
     for( unsigned o = 0; o < outer; ++ o ) {
         //  implicit x
@@ -130,13 +110,28 @@ void   run_OrigCPU(
 
     vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
-    REAL *d_myResult;
+    /*      Allocate Device memory */
+    REAL *d_myResult, *d_myX, *d_myY, *d_myVarX, *d_myVarY, *d_myDxx, *d_myDyy, *d_u, *d_v;
+    cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myY, numY * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myVarX, numX * numY * sizeof(REAL)));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myVarY, numX * numY * sizeof(REAL)));
+    unsigned long myDxxSize = numX * 4 * sizeof(REAL);
+    unsigned long myDyySize = numY * 4 * sizeof(REAL);
+    cudaErrchkAPI(cudaMalloc((void**)&d_myDxx, myDxxSize));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myDyy, myDyySize));
+    unsigned long myResultSize = outer * numX * numY * sizeof(REAL);
+    cudaErrchkAPI(cudaMalloc((void**)&d_u, myResultSize));
+    cudaErrchkAPI(cudaMalloc((void**)&d_v, myResultSize));
+    cudaErrchkAPI(cudaMalloc((void**)&d_myResult, myResultSize));
+
+
+    copy2DVec(d_myDxx, globs.myDxx, cudaMemcpyHostToDevice);
+    copy2DVec(d_myDyy, globs.myDyy, cudaMemcpyHostToDevice);
+
     // Compute myResult from a 2d kernel
     {
-        cudaErrchkAPI(cudaMalloc((void**)&d_myResult, outer * numX * numY * sizeof(REAL)));
 
-        REAL *d_myX;
-        cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
         cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
 
         int T =32;
@@ -149,14 +144,8 @@ void   run_OrigCPU(
 
         copy3DVec(d_myResult, myResult, cudaMemcpyDeviceToHost);
 
-        cudaErrchkAPI(cudaFree(d_myX));
     }
 
-    REAL *d_myX, *d_myY, *d_myVarX, *d_myVarY;
-    cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myY, numY * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myVarX, numX * numY * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myVarY, numX * numY * sizeof(REAL)));
 
     cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
     cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
@@ -176,13 +165,18 @@ void   run_OrigCPU(
             copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyDeviceToHost);
             copy2DVec(d_myVarY, globs.myVarY, cudaMemcpyDeviceToHost);
         }
-        rollback(g, globs, myResult, d_myResult, outer);
+        rollback(g, globs, myResult, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, outer);
     }
 
     cudaErrchkAPI(cudaFree(d_myX));
     cudaErrchkAPI(cudaFree(d_myY));
     cudaErrchkAPI(cudaFree(d_myVarX));
     cudaErrchkAPI(cudaFree(d_myVarY));
+    cudaErrchkAPI(cudaFree(d_myDxx));
+    cudaErrchkAPI(cudaFree(d_myDyy));
+    cudaErrchkAPI(cudaFree(d_u));
+    cudaErrchkAPI(cudaFree(d_v));
+    cudaErrchkAPI(cudaFree(d_myResult));
 
 
     {
