@@ -140,34 +140,24 @@ void   run_OrigCPU(
     copy2DVec(d_myDyy, globs.myDyy, cudaMemcpyHostToDevice);
 
     // Compute myResult from a 2d kernel
-    {
+    int dim = 32;
+    int dimO = ceil(((float)outer) / dim);
+    int dimX = ceil(((float)numX) / dim);
+    int dimY = ceil(((float)numY) / dim);
+    dim3 block(dim, dim, 1), gridOX(dimO, dimX, 1), gridXY(dimX, dimY, 1);
 
-        cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
-
-        int T =32;
-        int dimx = ceil(((float)outer) / T);
-        int dimy = ceil(((float)numX) / T);
-        dim3 block(T, T, 1), grid(dimx, dimy, 1);
-
-        myResultKernel2D<<<grid, block>>>(outer, numX, numY, d_myX, d_myResult);
-        cudaErrchkKernelAndSync();
-
-        copy3DVec(d_myResult, myResult, cudaMemcpyDeviceToHost);
-
-    }
-
+    cudaErrchkAPI(cudaMemcpy(d_myX, globs.myX.data(), numX * sizeof(REAL), cudaMemcpyHostToDevice));
     cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
 
-    int T =32;
-    int dimx = ceil(((float)numX) / T);
-    int dimy = ceil(((float)numY) / T);
-    dim3 block(T, T, 1), grid(dimx, dimy, 1);
+    myResultKernel2D<<<gridOX, block>>>(outer, numX, numY, d_myX, d_myResult);
+    cudaErrchkKernelAndSync();
 
+    copy3DVec(d_myResult, myResult, cudaMemcpyDeviceToHost);
 
     for(int g = globs.myTimeline.size()-2;g>=0;--g) {
         {
             REAL nu2t = 0.5 * nu * nu * globs.myTimeline[g];
-            myVarXYKernel<<<grid, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
+            myVarXYKernel<<<gridXY, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
             cudaErrchkKernelAndSync();
 
             copy2DVec(d_myVarX, globs.myVarX, cudaMemcpyDeviceToHost);
