@@ -18,30 +18,30 @@ __global__ void initUAndV2Dim (
         for(unsigned y = 0; y < numY; y++) {
 
             // explicit x
-            REAL u_new = dtInv * myResult[(o*numX*numY) + (x*numY) + y];
+            REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
 
             if (x > 0) {
                 u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
-                            * myResult[(o*numX*numY) + ((x-1)*numY) + y];
+                            * myResult[((x-1)*numY*outer) + (y*outer) + o];
             }
             u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
-                        * myResult[(o*numX*numY) + (x*numY) + y];
+                        * myResult[(x*numY*outer) + (y*outer) + o];
             if (x < numX - 1) {
                 u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
-                            * myResult[(o*numX*numY) + ((x+1)*numY) + y];
+                            * myResult[((x+1)*numY*outer) + (y*outer) + o];
             }
 
             // explicit y
             REAL v_new = 0.0;
             if(y > 0) {
                 v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
-                    *  myResult[(o*numX*numY) + (x*numY) + y-1];
+                    *  myResult[(x*numY*outer) + ((y-1)*outer) + o];
             }
             v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
-                *  myResult[(o*numX*numY) + (x*numY) + y];
+                *  myResult[(x*numY*outer) + (y*outer) + o];
             if(y < numY - 1) {
                 v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
-                    *  myResult[(o*numX*numY) + (x*numY) + y+1];
+                    *  myResult[(x*numY*outer) + ((y+1)*outer) + o];
             }
             v[(x*numY*outer) + (y*outer) + o] = v_new;
             u[(y*numX*outer) + (x*outer) + o] = u_new + v_new;
@@ -56,7 +56,7 @@ __global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned
   	if (o < outer && x < numX) {
   		REAL v = max(myX[x]-(0.001*o), (REAL)0.0);
         for(unsigned y = 0; y < numY; y++) {
-            myResult[o * numX * numY + x * numY + y] = v;
+            myResult[(x*numY*outer) + (y*outer) + o] = v;
         }
 	}
 }
@@ -91,6 +91,7 @@ __global__ void buildResultKernel(
 
 	if (o < outer) {
         res[o] = myResult[o * numX * numY + myXindex * numY + myYindex];
+        res[o] = myResult[(myXindex*numY*outer) + (myYindex*outer) + o];
     }
 }
 
@@ -178,13 +179,13 @@ __device__ inline void tridagDevice2(
         beta  = a[i * mult] / yy[(i-1) * mult];
 
         yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
-        u[i]  = r[i] - beta*u[(i-1)];
+        u[i*mult]  = r[i*mult] - beta*u[(i-1)*mult];
     }
 
     // X) this is a backward recurrence
-    u[(n-1)] = u[(n-1)] / yy[(n-1) * mult];
+    u[(n-1)*mult] = u[(n-1)*mult] / yy[(n-1) * mult];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i * mult]*u[(i+1)]) / yy[i * mult];
+        u[i*mult] = (u[i*mult] - c[i * mult]*u[(i+1)*mult]) / yy[i * mult];
     }
 }
 
@@ -209,7 +210,7 @@ __global__ void tridag2(
         }
 
         for(unsigned y = 0; y < numY; y++) {
-            _y[o * numZ * numZ + x * numZ + y] = dtInv*u[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
+            _y[(x*numZ*outer) + (y*outer) + o] = dtInv*u[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
         }
 
         // here yy should have size [numY]
@@ -217,9 +218,9 @@ __global__ void tridag2(
             a + (ox_idx_zo),
             b + (ox_idx_zo),
             c + (ox_idx_zo),
-            _y + (o * numZ * numZ + x * numZ),
+            _y + (o + x * numZ * outer),
             numY,
-            myResult + (o * numX * numY + x * numY),
+            myResult + (o + x * numY * outer),
             yy + (ox_idx_zo),
             outer
         );
