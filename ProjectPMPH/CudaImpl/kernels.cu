@@ -133,27 +133,25 @@ __device__ inline void tridagDeviceTrans(
     const int n,
     REAL*   u,   // size [n]
     REAL*   yy,   // size [n] temporary
-    const int numZ,
-    const int outer
+    const int mult // multiplier to index into arrays
 ) {
     int    i;
     REAL   beta;
-    int ZO = numZ * outer;
 
     u[0]  = r[0];
     yy[0] = b[0];
 
     for(i=1; i<n; i++) {
-        beta  = a[i * ZO] / yy[(i-1) * ZO];
+        beta  = a[i * mult] / yy[(i-1) * mult];
 
-        yy[i * ZO] = b[i * ZO] - beta*c[(i-1) * ZO];
+        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
         u[i]  = r[i] - beta*u[i-1];
     }
 
     // X) this is a backward recurrence
-    u[n-1] = u[n-1] / yy[(n-1) * ZO];
+    u[n-1] = u[n-1] / yy[(n-1) * mult];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i * ZO]*u[i+1]) / yy[i * ZO];
+        u[i] = (u[i] - c[i * mult]*u[i+1]) / yy[i * mult];
     }
 }
 
@@ -184,8 +182,7 @@ __global__ void tridag1(
             numX,
             u + (o * numX * numY + y * numX),
             yy+ (o + y * outer),
-            numZ,
-            outer
+            numZ * outer
         );
     }
 }
@@ -202,26 +199,30 @@ __global__ void tridag2(
     int x = threadIdx.y + blockDim.y*blockIdx.y;
 
     if (o < outer && x < numX) {
-        int ox_idx_zz = o * numZ * numZ + x * numZ;
+        int ox_idx_zo = o + x * numZ * outer;
         for(unsigned y = 0; y < numY; y++) {
             // here a, b, c should have size [numY]
-            a[ox_idx_zz+y] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
-            b[ox_idx_zz+y] = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
-            c[ox_idx_zz+y] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 2]);
+            a[ox_idx_zo + y * outer] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
+            b[ox_idx_zo + y * outer] = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
+            c[ox_idx_zo + y * outer] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 2]);
         }
 
         for(unsigned y = 0; y < numY; y++) {
-            _y[ox_idx_zz+y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
+            // _y[ox_idx_zo+y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
+            _y[o * numZ * numZ + x * numZ + y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
         }
 
         // here yy should have size [numY]
-        tridagDevice(
-            a + (ox_idx_zz),
-            b + (ox_idx_zz),
-            c + (ox_idx_zz),
-            _y+ (ox_idx_zz),
+        tridagDeviceTrans(
+            a + (ox_idx_zo),
+            b + (ox_idx_zo),
+            c + (ox_idx_zo),
+            _y+ (o * numZ * numZ + x * numZ),
             numY,
             myResult + (o * numX * numY + x * numY),
-            yy+ (ox_idx_zz));
+            yy+ (ox_idx_zo),
+            outer
+        );
+        
     }
 }
