@@ -48,6 +48,11 @@ rollback(
     tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d_myResult);
 }
 
+struct d_alloc {
+    REAL** ptr;
+    unsigned int size;
+};
+
 void   run_OrigCPU(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
@@ -65,27 +70,48 @@ void   run_OrigCPU(
     initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
     initOperator(globs.myX,globs.myDxx);
     initOperator(globs.myY,globs.myDyy);
-    int numZ = max(numX, numY);
+    unsigned int numZ = max(numX, numY);
 
-    /*      Allocate Device memory */
-    REAL *d_myResult, *d_myX, *d_myY, *d_myVarX, *d_myVarY, *d_myDxx, *d_myDyy, *d_u, *d_v;
-    cudaErrchkAPI(cudaMalloc((void**)&d_myX, numX * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myY, numY * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myVarX, numX * numY * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myVarY, numX * numY * sizeof(REAL)));
-    unsigned long myDxxSize = numX * 4 * sizeof(REAL);
-    unsigned long myDyySize = numY * 4 * sizeof(REAL);
-    cudaErrchkAPI(cudaMalloc((void**)&d_myDxx, myDxxSize));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myDyy, myDyySize));
-    unsigned long myResultSize = outer * numX * numY * sizeof(REAL);
-    cudaErrchkAPI(cudaMalloc((void**)&d_u, myResultSize));
-    cudaErrchkAPI(cudaMalloc((void**)&d_v, myResultSize));
-    cudaErrchkAPI(cudaMalloc((void**)&d_myResult, myResultSize));
-
+    /*      Declare device pointers */
+    REAL *d_myResult, *d_myX, *d_myY, *d_myVarX, *d_myVarY, *d_myDxx, *d_myDyy, *d_u, *d_v, *d_res;
     REAL *d_c;
-    cudaErrchkAPI(cudaMalloc((void**)&d_c, outer * numZ * numZ * sizeof(REAL)));
     REAL *d_yy;
-    cudaErrchkAPI(cudaMalloc((void**)&d_yy, outer * numZ * numZ * sizeof(REAL)));
+
+    unsigned int myResultSize = outer * numX * numY;
+
+    // List of device pointers and what size they request
+    vector<d_alloc> allocations = {
+        {&d_res, outer},
+        {&d_myX, numX},
+        {&d_myY, numY},
+        {&d_myVarX, numX * numY},
+        {&d_myVarY, numX * numY},
+        {&d_myDxx, numX * 4},
+        {&d_myDyy, numY * 4},
+        {&d_c, outer*numZ*numZ},
+        {&d_yy, outer * numZ * numZ},
+        {&d_v, myResultSize},
+        {&d_myResult, myResultSize},
+        {&d_u, myResultSize},
+    };
+
+    unsigned long total_size;
+    for (auto& al : allocations) {
+        total_size += al.size;
+    }
+
+    // Allocate all device memory to save allocation/deallocation overhead
+    // Unfortunately it doesn't seem to make too much difference.
+    REAL* master_device_ptr;
+    cudaErrchkAPI(cudaMalloc((void**)&master_device_ptr, total_size * sizeof(REAL)));
+
+    REAL* accum_ptr = master_device_ptr;
+
+    for (auto& al : allocations) {
+        *(al.ptr) = accum_ptr;
+        accum_ptr += al.size;
+    }
+
 
     /* Copy initial required data to device */
     copy2DVec(d_myDxx, globs.myDxx, cudaMemcpyHostToDevice);
@@ -94,7 +120,12 @@ void   run_OrigCPU(
     cudaErrchkAPI(cudaMemcpy(d_myY, globs.myY.data(), numY * sizeof(REAL), cudaMemcpyHostToDevice));
 
     /* Compute myResult from a 2d kernel */
-    int dim = 32;
+    int dim;
+    if (outer > 31) {
+        dim = 32;
+    } else {
+        dim = 16;
+    }
     int dimO = ceil(((float)outer) / dim);
     int dimX = ceil(((float)numX) / dim);
     int dimY = ceil(((float)numY) / dim);
@@ -113,8 +144,6 @@ void   run_OrigCPU(
     }
 
     {
-        REAL *d_res;
-        cudaErrchkAPI(cudaMalloc((void**)&d_res, outer * sizeof(REAL)));
 
         unsigned int block_size = 256;
         unsigned int num_blocks = (outer + (block_size -1)) / block_size;
@@ -124,20 +153,9 @@ void   run_OrigCPU(
 
         cudaMemcpy(res, d_res, outer * sizeof(REAL), cudaMemcpyDeviceToHost);
 
-        cudaErrchkAPI(cudaFree(d_res));
     }
 
-    cudaErrchkAPI(cudaFree(d_myX));
-    cudaErrchkAPI(cudaFree(d_myY));
-    cudaErrchkAPI(cudaFree(d_myVarX));
-    cudaErrchkAPI(cudaFree(d_myVarY));
-    cudaErrchkAPI(cudaFree(d_myDxx));
-    cudaErrchkAPI(cudaFree(d_myDyy));
-    cudaErrchkAPI(cudaFree(d_u));
-    cudaErrchkAPI(cudaFree(d_v));
-
-    cudaErrchkAPI(cudaFree(d_c));
-    cudaErrchkAPI(cudaFree(d_yy));
+    cudaErrchkAPI(cudaFree(master_device_ptr));
 }
 
 //#endif // PROJ_CORE_ORIG
