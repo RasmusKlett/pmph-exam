@@ -6,65 +6,63 @@ __global__ void initUAndV2Dim (
                     REAL* myDxx,
                     REAL* myDyy,
                     REAL* myResult,
-                    unsigned outer,
-                    unsigned numX,
-                    unsigned numY,
+                    const int outer,
+                    const int numX,
+                    const int numY,
                     REAL dtInv
 ) {
     int o = blockIdx.x*blockDim.x + threadIdx.x;
     int x = blockIdx.y*blockDim.y + threadIdx.y;
 
     if (o < outer && x < numX) {
-        for(unsigned y = 0; y < numY; y++) {
+        for(int y = 0; y < numY; y++) {
 
             // explicit x
-            unsigned uIdx_oyx = (o*numY * numX) + (y*numX) + x;
-
-            u[uIdx_oyx] = dtInv * myResult[(o*numX*numY) + (x*numY) + y];
+            REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
 
             if (x > 0) {
-                u[uIdx_oyx] += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
-                            * myResult[(o*numX*numY) + ((x-1)*numY) + y];
+                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
+                            * myResult[((x-1)*numY*outer) + (y*outer) + o];
             }
-            u[uIdx_oyx] += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
-                        * myResult[(o*numX*numY) + (x*numY) + y];
+            u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
+                        * myResult[(x*numY*outer) + (y*outer) + o];
             if (x < numX - 1) {
-                u[uIdx_oyx] += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
-                            * myResult[(o*numX*numY) + ((x+1)*numY) + y];
+                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
+                            * myResult[((x+1)*numY*outer) + (y*outer) + o];
             }
 
             // explicit y
-            unsigned vIdx_oxy = (o*numX*numY) + (x*numY) + y;
-            v[vIdx_oxy] = 0.0;
+            REAL v_new = 0.0;
             if(y > 0) {
-                v[vIdx_oxy] += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
-                    *  myResult[(o*numX*numY) + (x*numY) + y-1];
+                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
+                    *  myResult[(x*numY*outer) + ((y-1)*outer) + o];
             }
-            v[vIdx_oxy] += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
-                *  myResult[(o*numX*numY) + (x*numY) + y];
+            v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
+                *  myResult[(x*numY*outer) + (y*outer) + o];
             if(y < numY - 1) {
-                v[vIdx_oxy] += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
-                    *  myResult[(o*numX*numY) + (x*numY) + y+1];
+                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
+                    *  myResult[(x*numY*outer) + ((y+1)*outer) + o];
             }
-            u[uIdx_oyx] += v[vIdx_oxy];
+            v[(x*numY*outer) + (y*outer) + o] = v_new;
+            u[(y*numX*outer) + (x*outer) + o] = u_new + v_new;
         }
     }
 }
 
-__global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned int numY, REAL *myX, REAL *myResult) {
+__global__ void myResultKernel2D(const int outer, const int numX, const int numY, REAL *myX, REAL *myResult) {
 	int o = threadIdx.x + blockDim.x*blockIdx.x;
   	int x = threadIdx.y + blockDim.y*blockIdx.y;
 
   	if (o < outer && x < numX) {
   		REAL v = max(myX[x]-(0.001*o), (REAL)0.0);
-        for(unsigned y = 0; y < numY; y++) {
-            myResult[o * numX * numY + x * numY + y] = v;
+        for(int y = 0; y < numY; y++) {
+            myResult[(x*numY*outer) + (y*outer) + o] = v;
         }
 	}
 }
 
 __global__ void myVarXYKernel(
-	unsigned int numX, unsigned int numY,
+	const int numX, const int numY,
 	REAL beta, REAL nu2t, REAL alpha,
 	REAL *myX, REAL *myY,
 	REAL *myVarX, REAL *myVarY
@@ -85,49 +83,52 @@ __global__ void myVarXYKernel(
 }
 
 __global__ void buildResultKernel(
-	unsigned int outer, unsigned int numX, unsigned int numY,
-	unsigned int myXindex, unsigned int myYindex,
+	const int outer, const int numX, const int numY,
+	const int myXindex, const int myYindex,
 	REAL *res, REAL *myResult
 	) {
-	const unsigned int o = threadIdx.x + blockDim.x * blockIdx.x;
+	const int o = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (o < outer) {
         res[o] = myResult[o * numX * numY + myXindex * numY + myYindex];
+        res[o] = myResult[(myXindex*numY*outer) + (myYindex*outer) + o];
     }
 }
 
-__device__ void tridagDevice(
+__device__ inline void tridagDevice1(
     REAL*   a,   // size [n]
     REAL*   b,   // size [n]
     REAL*   c,   // size [n]
-    REAL*   r,   // size [n]
+    REAL*   r,   // size [n] u
     const int n,
-    REAL*   u,   // size [n]
-    REAL*   uu   // size [n] temporary
+    REAL*   u,   // size [n] u
+    REAL*   yy,   // size [n] temporary
+    const int mult,  // multiplier to index into arrays
+    const int multU
 ) {
     int    i;
     REAL   beta;
 
     u[0]  = r[0];
-    uu[0] = b[0];
+    yy[0] = b[0];
 
     for(i=1; i<n; i++) {
-        beta  = a[i] / uu[i-1];
+        beta  = a[i * mult] / yy[(i-1) * mult];
 
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
+        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
+        u[i * multU]  = r[i*multU] - beta*u[(i-1) * multU];
     }
 
     // X) this is a backward recurrence
-    u[n-1] = u[n-1] / uu[n-1];
+    u[(n-1)*multU] = u[(n-1)*multU] / yy[(n-1) * mult];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
+        u[i*multU] = (u[i*multU] - c[i * mult]*u[(i+1)*multU]) / yy[i * mult];
     }
 }
 
 __global__ void tridag1(
-    unsigned int outer, unsigned int numX, unsigned int numY, unsigned int numZ,
-    REAL *a, REAL *b, REAL *c,
+    const int outer, const int numX, const int numY, const int numZ,
+    REAL *c,
     REAL dtInv,
     REAL *myVarX, REAL *myDxx,
     REAL *u, REAL *yy
@@ -136,57 +137,83 @@ __global__ void tridag1(
     int y = threadIdx.y + blockDim.y*blockIdx.y;
 
     if (o < outer && y < numY) {
-        for(unsigned x = 0; x < numX; x++) {
-            // here a, b,c should have size [numX]
-            a[o * numZ * numZ + y * numZ + x] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 0]);
-            b[o * numZ * numZ + y * numZ + x] = dtInv - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 1]);
-            c[o * numZ * numZ + y * numZ + x] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 2]);
+
+        // Inlined tridag
+        c = c + (o + y * outer);
+        REAL* r = u + (o + y * numX * outer);
+        u = u + (o + y * numX * outer);
+        yy = yy + (o + y * outer);
+
+        REAL   beta;
+
+        u[0]  = r[0];
+        yy[0] = dtInv - 0.5*(0.5*myVarX[y]*myDxx[1]);
+
+        for(int x=1; x<numX; x++) {
+            REAL aV =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 0]);
+            REAL bV = dtInv - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 1]);
+            REAL cV =       - 0.5*(0.5*myVarX[(x-1) * numY + y]*myDxx[(x-1) * 4 + 2]);
+
+            // Write this in loop, it is not worth it to recalculate in following loop
+            c[x * numZ * outer] = cV;
+
+            beta  = aV / yy[(x-1) * numZ * outer];
+
+            yy[x * numZ * outer] = bV - beta*cV;
+            u[x * outer]  = r[x*outer] - beta*u[(x-1) * outer];
         }
 
-        // here yy should have size [numX]
-        tridagDevice(
-            a + (o * numZ * numZ + y * numZ),
-            b + (o * numZ * numZ + y * numZ),
-            c + (o * numZ * numZ + y * numZ),
-            u + (o * numX * numY + y * numX),
-            numX,
-            u + (o * numX * numY + y * numX),
-            yy+ (o * numZ * numZ + y * numZ));
+        // X) this is a backward recurrence
+        u[(numX-1)*outer] = u[(numX-1)*outer] / yy[(numX-1) * numZ * outer];
+        for(int x=numX-2; x>=0; x--) {
+            u[x*outer] = (u[x*outer] - c[(x+1) * numZ * outer]*u[(x+1)*outer]) / yy[x * numZ * outer];
+        }
     }
 }
 
 __global__ void tridag2(
-    unsigned int outer, unsigned int numX, unsigned int numY, unsigned int numZ,
-    REAL *a, REAL *b, REAL *c,
+    const int outer, const int numX, const int numY, const int numZ,
+    REAL *c,
     REAL dtInv,
     REAL *myVarY, REAL *myDyy,
-    REAL *u, REAL *v, REAL *yy, REAL *_y, REAL *myResult
+    REAL *u, REAL *v, REAL *yy, REAL *myResult
     ) {
 
     int o = threadIdx.x + blockDim.x*blockIdx.x;
     int x = threadIdx.y + blockDim.y*blockIdx.y;
 
     if (o < outer && x < numX) {
-        int ox_idx_zz = o * numZ * numZ + x * numZ;
-        for(unsigned y = 0; y < numY; y++) {
-            // here a, b, c should have size [numY]
-            a[ox_idx_zz+y] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
-            b[ox_idx_zz+y] = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
-            c[ox_idx_zz+y] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 2]);
+
+        // Inlined tridag
+        REAL* u_old = u;
+        u = myResult + (o + x * numY * outer);
+        yy = yy + o + x * numZ * outer;
+
+        REAL   beta;
+
+        u[0]  = dtInv*u[(x*outer) + o] - 0.5*v[x * numY * outer + o];
+        yy[0] = dtInv - 0.5*(0.5*myVarY[x * numY]*myDyy[1]);
+
+        for(int y=1; y<numY; y++) {
+            REAL aV = - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
+            REAL bV = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
+            REAL cV =       - 0.5*(0.5*myVarY[x * numY + (y-1)]*myDyy[(y-1) * 4 + 2]);
+
+            // Write this in loop, it is not worth it to recalculate in following loop
+            c[(x*numZ*outer) + y * outer + o] = cV;
+
+            REAL rV = dtInv*u_old[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
+
+            beta  = aV / yy[(y-1) * outer];
+
+            yy[y * outer] = bV - beta*cV;
+            u[y*outer]  = rV - beta*u[(y-1)*outer];
         }
 
-        for(unsigned y = 0; y < numY; y++) {
-            _y[ox_idx_zz+y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
+        // X) this is a backward recurrence
+        u[(numY-1)*outer] = u[(numY-1)*outer] / yy[(numY-1) * outer];
+        for(int i=numY-2; i>=0; i--) {
+            u[i*outer] = (u[i*outer] - c[(x*numZ*outer) + (i+1) * outer + o]*u[(i+1)*outer]) / yy[i * outer];
         }
-
-        // here yy should have size [numY]
-        tridagDevice(
-            a + (ox_idx_zz),
-            b + (ox_idx_zz),
-            c + (ox_idx_zz),
-            _y+ (ox_idx_zz),
-            numY,
-            myResult + (o * numX * numY + x * numY),
-            yy+ (ox_idx_zz));
     }
 }
