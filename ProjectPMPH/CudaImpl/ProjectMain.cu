@@ -16,7 +16,7 @@ int main()
     cudaFree(0);
 
     {   // Original Program (Sequential CPU Execution)
-        cout<<"\n// Running Original, Sequential Project Program"<<endl;
+        cout<<"\n// Running GPU Optimized Project Program"<<endl;
 
         unsigned long int elapsed = 0;
         struct timeval t_start, t_end, t_diff;
