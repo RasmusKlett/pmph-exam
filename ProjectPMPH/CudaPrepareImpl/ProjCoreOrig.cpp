@@ -107,10 +107,10 @@ void   run_OrigCPU(
 
     vector<vector<vector<REAL> > > myResult(outer, vector<vector<REAL > >(numX, vector<REAL> (numY)));
 
-    for( unsigned o = 0; o < outer; ++ o ) {
-        for(unsigned x = 0; x < globs.myX.size(); ++x) {
+    for(unsigned o = 0; o < outer; o++) {
+        for(unsigned x = 0; x < globs.myX.size(); x++) {
             REAL v = max(globs.myX[x]-(0.001*o), (REAL)0.0);
-            for(unsigned y = 0; y < globs.myY.size(); ++y) {
+            for(unsigned y = 0; y < globs.myY.size(); y++) {
                 myResult[o][x][y] = v;
             }
         }

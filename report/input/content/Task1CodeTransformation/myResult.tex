@@ -25,4 +25,27 @@ the transformation the array or variable was private and hence unaffected by
 other iterations.
 We perform exactly such a expansion of the \emph{myResult} array. To do this we
 also extract it from the PrivGlobs struct. \emph{myResult} is now a 3-dim
-array. This is a key concept we will utilize multiple times.
+array, and we are able to compute \textbf{setPayoff} in a \emph{outer} loop as
+we can see in Figure \ref{fig:new_myresult}.
+
+\begin{figure}[!ht]
+	\centering
+		\includegraphics[scale=1]{input/figures/new_myResult.png}
+		\caption{\label{fig:new_myresult}}
+\end{figure}
+
+Array expansion is a key concept we will utilize multiple times.
+
+If we inline \emph{setPayoff} into the loop shown in Figure \ref{fig:new_myresult}
+we can shorten the code and we are left with a loopnest that is fully
+parallelizable as we can see in Figure \ref{fig:new_myresult2}.
+
+\begin{figure}[!ht]
+	\centering
+		\includegraphics[scale=1]{input/figures/new_myResult2.png}
+		\caption{\label{fig:new_myresult2}}
+\end{figure}
+
+It should be clear that there are no loop dependencies between each iteration
+. We also note that the computed value is constant for each iteration of the
+inner loop. Hence this computation can be extracted from the inner loop.
