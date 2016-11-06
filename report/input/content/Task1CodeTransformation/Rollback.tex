@@ -1,0 +1,11 @@
+\subsection{Loop distribution over rollback}
+The next code transformation is by moving the \emph{outer} dimensioned loop
+inside the \textbf{rollback} function and loop distribute the dimension across
+the three main loops inside \textbf{rollback}.
+
+We array expand \emph{u}, \emph{v}, \emph{a}, \emph{b}, \emph{c}, \emph{\_y} \& \emph{yy} to all be of 3 dimensions.
+%We furthermore minimize the number of accesses to \emph{u} and \emph{v} by
+
+We are now able to identify what will become three kernels inside
+\textbf{rollback} aswell as our main kernels of interest. These are be named
+\textbf{initUAndV2Dim}, \textbf{tridag1} \& \textbf{tridag2}.
