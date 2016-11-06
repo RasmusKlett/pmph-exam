@@ -78,7 +78,23 @@ void tridag(
           vector<REAL>&   uu   // size [n] temporary
 );
 
-void rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer);
+void rollback(
+                const unsigned g,
+                PrivGlobs& globs,
+                REAL* d_myResult,
+                REAL* d_myVarX,
+                REAL* d_myVarY,
+                REAL* d_myDxx,
+                REAL* d_myDyy,
+                REAL* d_u,
+                REAL* d_v,
+                REAL* d_a,
+                REAL* d_b,
+                REAL* d_c,
+                REAL* d_yy,
+                REAL* d__y,
+                const unsigned int outer
+);
 
 void run_OrigCPU(  
                 const unsigned int&   outer,
