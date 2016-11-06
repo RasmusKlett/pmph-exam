@@ -201,28 +201,36 @@ __global__ void tridag2(
     int x = threadIdx.y + blockDim.y*blockIdx.y;
 
     if (o < outer && x < numX) {
-        int ox_idx_zo = o + x * numZ * outer;
-        for(int y = 0; y < numY; y++) {
-            // here a, b, c should have size [numY]
-            a[ox_idx_zo + y * outer] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
-            b[ox_idx_zo + y * outer] = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
-            c[ox_idx_zo + y * outer] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 2]);
+
+        REAL* u_old = u;
+        u = myResult + (o + x * numY * outer);
+        yy = yy + o + x * numZ * outer;
+
+        REAL   beta;
+
+        u[0]  = dtInv*u[(x*outer) + o] - 0.5*v[x * numY * outer + o];
+        yy[0] = b[0];
+
+        for(int y=1; y<numY; y++) {
+            REAL aV = - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
+            REAL bV = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
+            REAL cV =       - 0.5*(0.5*myVarY[x * numY + (y-1)]*myDyy[(y-1) * 4 + 2]);
+
+            // Write this in loop, it is not worth it to recalculate in following loop
+            c[(x*numZ*outer) + y * outer + o] = cV;
+
+            REAL rV = dtInv*u_old[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
+
+            beta  = aV / yy[(y-1) * outer];
+
+            yy[y * outer] = bV - beta*cV;
+            u[y*outer]  = rV - beta*u[(y-1)*outer];
         }
 
-        for(int y = 0; y < numY; y++) {
-            _y[(x*numZ*outer) + (y*outer) + o] = dtInv*u[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
+        // X) this is a backward recurrence
+        u[(numY-1)*outer] = u[(numY-1)*outer] / yy[(numY-1) * outer];
+        for(int i=numY-2; i>=0; i--) {
+            u[i*outer] = (u[i*outer] - c[(x*numZ*outer) + (i+1) * outer + o]*u[(i+1)*outer]) / yy[i * outer];
         }
-
-        // here yy should have size [numY]
-        tridagDevice2(
-            a + (ox_idx_zo),
-            b + (ox_idx_zo),
-            c + (ox_idx_zo),
-            _y + (o + x * numZ * outer),
-            numY,
-            myResult + (o + x * numY * outer),
-            yy + (ox_idx_zo),
-            outer
-        );
     }
 }
