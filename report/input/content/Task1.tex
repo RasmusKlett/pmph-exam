@@ -1,0 +1,10 @@
+\section{Task1}
+In this section we are going to target efficient parallelization of the
+\textbf{large} dataset. The main strategy here is to parallelize the two outer
+loops which corresponds to the \emph{outer} and \emph{numX} or \emph{numY}
+dimensions. Note that each \textbf{tridag} call will be executed sequentially
+inside each kernel.
+
+First we will discuss the many code transformation we have performed
+next we will look into the individual kernels and discuss why these
+are parallelisable.
