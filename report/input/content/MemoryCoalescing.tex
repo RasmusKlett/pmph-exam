@@ -2,8 +2,8 @@
 At this point it is interesting to benchmark the performance of the naive CUDA implementation resulting from this. As expected, this implementation is quite slow, taking 25 seconds on large, and the nVidia Profiler confirms that the culprit is uncoalesced memory access.\\
 The runtime is distributed across the kernels like so: \\
 \begin{tabular}{c|c}
-    tridag1 & 8.4s
-    tridag2 & 10.0s
+    tridag1 & 8.4s \\
+    tridag2 & 10.0s \\
     initUandV2Dim & 7.1s
 \end{tabular}
 \par Since our kernels have the loop over \emph{outer} as their outermost loop, this index is the fastest-varying in the kernels.Therefore the O-index should be used in the innermost indexing into arrays to achieve coalescing. Looking at the dimensions of the arrays we write, this is not the case: 
@@ -33,7 +33,7 @@ myResult[O,X,Y]
 
 This provides a dramatic speedup, netting a runtime on large of 1.81 seconds.
 \begin{tabular}{c|c}
-    tridag1 & 8.4s
-    tridag2 & 10.0s
+    tridag1 & 8.4s \\
+    tridag2 & 10.0s \\
     initUandV2Dim & 7.1s
 \end{tabular}
