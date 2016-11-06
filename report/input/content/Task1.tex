@@ -8,3 +8,20 @@ inside each kernel.
 First we will discuss the many code transformation we have performed
 next we will look into the individual kernels and discuss why these
 are parallelisable.
+
+The handin for Task1 is contained in \emph{/ProjectPMPH/}. The subfolder
+\emph{OrigImpl/} contains the original implementation with the openOMP pragma
+. \emph{CudaPrepareImpl/} contains all our code transformations before writing
+CUDA kernels. Some code transformations are very specific to the individual
+implemented kernels and are hence not included in these files. The
+\emph{CudaImpl/} subfolder is extended on top of the code found in
+\emph{CudaPrepareImpl} and implements CUDA kernels.
+Each subfolder contains a \textbf{Makefile} which can be used to execute against
+the given small, medium and large data files.
+
+After applying all of our code transformations and implemented CUDA kernels
+we are able to achieve an average running time of $88667\mu s \approx 0.09s$
+for the small data set, $137371\mu s \approx 0.14s$ for the medium data set and
+$1225374\mu s \approx 1.2s$ for the large data set.
+This is a speed up of $x2.9$, $x2.4$ \& $x11.1$, respectively. Yet, still many
+optimizations are still applicable.
