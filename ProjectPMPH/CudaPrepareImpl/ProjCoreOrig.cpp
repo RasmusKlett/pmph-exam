@@ -8,7 +8,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
     unsigned numZ = max(numX,numY);
-    unsigned x, y, i, j;
+    unsigned o, x, y;
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     vector<vector<vector<REAL> > > u(outer, vector<vector<REAL> > (numY, vector<REAL>(numX))); // [outer][numY][numX]
@@ -19,38 +19,37 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
     vector<vector<vector<REAL> > > _y(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
     vector<vector<vector<REAL> > > yy(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // temporary used in tridag // [outer][numZ][numZ]
 
-    for( unsigned o = 0; o < outer; ++ o )
-    {
-        for(i=0;i<numX;i++) {
-            for(j=0;j<numY;j++) {
+    for(o = 0; o < outer; o++) {
+        for(x = 0; x < numX; x ++) {
+            for(y = 0; y < numY; y++) {
                 // explicit x
-                u[o][j][i] = dtInv*myResult[o][i][j];
+                u[o][y][x] = dtInv*myResult[o][x][y];
 
-                if(i > 0) {
-                  u[o][j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
-                                * myResult[o][i-1][j];
+                if(x > 0) {
+                  u[o][y][x] += 0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][0] )
+                                * myResult[o][x-1][y];
                 }
-                u[o][j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
-                                * myResult[o][i][j];
-                if(i < numX-1) {
-                  u[o][j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
-                                * myResult[o][i+1][j];
+                u[o][y][x]  +=  0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][1] )
+                                * myResult[o][x][y];
+                if(x < numX-1) {
+                  u[o][y][x] += 0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][2] )
+                                * myResult[o][x+1][y];
                 }
 
                 // explicit y
-                v[o][i][j] = 0.0;
+                v[o][x][y] = 0.0;
 
-                if(j > 0) {
-                  v[o][i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][0] )
-                             *  myResult[o][i][j-1];
+                if(y > 0) {
+                  v[o][x][y] +=  ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][0] )
+                             *  myResult[o][x][y-1];
                 }
-                v[o][i][j]  +=   ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][1] )
-                             *  myResult[o][i][j];
-                if(j < numY-1) {
-                  v[o][i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
-                             *  myResult[o][i][j+1];
+                v[o][x][y]  +=   ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][1] )
+                             *  myResult[o][x][y];
+                if(y < numY-1) {
+                  v[o][x][y] +=  ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][2] )
+                             *  myResult[o][x][y+1];
                 }
-                u[o][j][i] += v[o][i][j];
+                u[o][y][x] += v[o][x][y];
             }
         }
 
