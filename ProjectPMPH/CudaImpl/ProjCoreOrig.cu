@@ -2,6 +2,7 @@
 #include "Constants.h"
 #include "TridagPar.h"
 #include "kernels.cu"
+#include "kernels_small.cu"
 #include "ProjHelperFun.cu"
 #include "cudaErrHandling.cu"
 #include <vector>
@@ -25,8 +26,11 @@ rollback(
                 REAL* d_myDyy,
                 REAL* d_u,
                 REAL* d_v,
+                REAL* d_a,
+                REAL* d_b,
                 REAL* d_c,
                 REAL* d_yy,
+                REAL* d__y,
                 const unsigned int outer,
                 const unsigned dim
 ) {
@@ -36,7 +40,8 @@ rollback(
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     /*      Call kernel  */
-    const bool is_3D = outer * numX < 5000;
+    // const bool is_3D = outer * numX < 5000;
+    const bool is_3D = true;
 
     int dimO = ceil( ((float)outer) / (is_3D ? 16 : dim ));
     int dimX = ceil( ((float)numX) / (is_3D ? 8 : dim ));
@@ -44,8 +49,10 @@ rollback(
 
     dim3 block(dim, dim, 1), gridOX(dimO, dimX, 1);
     dim3 gridOY(dimO, dimY, 1);
+
+    dim3 block3D(16, 8, 8), gridOXY(dimO, dimX, dimY);
+
     if (is_3D) {
-        dim3 block3D(16, 8, 8), gridOXY(dimO, dimX, dimY);
         initUAndV3Dim<<<gridOXY, block3D>>>
             (d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult,
              outer, numX, numY, dtInv);
@@ -55,8 +62,19 @@ rollback(
              outer, numX, numY, dtInv);
     }
 
-    tridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
-    tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d_myResult);
+
+    if (false) {
+        // 3D-calc of a, b, c and y. Does not beat privatization of a and b, even on small dataset.
+        initABC3D<<<gridOXY, block3D>>>(d_a, d_b, d_c, outer, numX, numY, numZ, dtInv, d_myVarX, d_myDxx, true);
+        onlyTridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_a, d_b, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
+
+        initABC3D<<<gridOXY, block3D>>>(d_a, d_b, d_c, outer, numX, numY, numZ, dtInv, d_myVarY, d_myDyy, false);
+        init_y<<<gridOXY, block3D>>>(outer, numX, numY, numZ, d__y, d_u, d_v, dtInv);
+        onlyTridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_a, d_b, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d__y, d_myResult);
+    } else {
+        tridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
+        tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d_myResult);
+    }
 }
 
 struct d_alloc {
@@ -85,8 +103,8 @@ void   run_OrigCPU(
 
     /*      Declare device pointers */
     REAL *d_myResult, *d_myX, *d_myY, *d_myVarX, *d_myVarY, *d_myDxx, *d_myDyy, *d_u, *d_v, *d_res;
-    REAL *d_c;
-    REAL *d_yy;
+    REAL *d_a, *d_b, *d_c;
+    REAL *d_yy, *d__y;
 
     unsigned int myResultSize = outer * numX * numY;
 
@@ -99,8 +117,11 @@ void   run_OrigCPU(
         {&d_myVarY, numX * numY},
         {&d_myDxx, numX * 4},
         {&d_myDyy, numY * 4},
+        {&d_a, outer*numZ*numZ},
+        {&d_b, outer*numZ*numZ},
         {&d_c, outer*numZ*numZ},
         {&d_yy, outer * numZ * numZ},
+        {&d__y, outer * numZ * numZ},
         {&d_v, myResultSize},
         {&d_myResult, myResultSize},
         {&d_u, myResultSize},
@@ -151,7 +172,7 @@ void   run_OrigCPU(
             myVarXYKernel<<<gridXY, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
             cudaErrchkKernelAndSync();
         }
-        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_c, d_yy, outer, dim);
+        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_a, d_b, d_c, d_yy, d__y, outer, dim);
     }
 
     {

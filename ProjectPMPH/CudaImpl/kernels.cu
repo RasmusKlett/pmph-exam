@@ -169,7 +169,6 @@ __global__ void buildResultKernel(
         res[o] = myResult[(myXindex*numY*outer) + (myYindex*outer) + o];
     }
 }
-
 // Sets up a, b, c and performs tridag. Calculation of a and b has been privatized, 
 // and c has been moved.
 __global__ void tridag1(

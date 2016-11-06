@@ -1,5 +1,5 @@
 \subsection{Privatization}
-As with the openOMP version we privatize the \emph{strike} variable. Same
+As with the openMP version we privatize the \emph{strike} variable. Same
 argumentation as before applies.
 \textbf{Add more juicy? Do we privatize more? Explain concept and safety? Collapse with the subsection below?}
 
@@ -10,7 +10,7 @@ Initializing \emph{globs} allocates the required memory for the variables
 \emph{myVarX} \& \emph{myVarY}. Since no cross iteration dependecies exist we
 can reuse the allocated memory space inbetween each iteration and hoist
 \emph{globs} out of the loops. Note that this is a reversal of a privatization,
-and could be nonbeneficial, however as \emph{myTimeline}, \emph{myXindex},
+and could obscure opportunities for parallelization, however as \emph{myTimeline}, \emph{myXindex},
 \emph{myX}, \emph{myYindex}, \emph{myY}, \emph{Dxx} \& \emph{Dyy} are all
 constant accross all iterations and therefore these only need to be computed
 once for all iterations. Hence we hoist the \textbf{initGrid} and
