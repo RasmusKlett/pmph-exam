@@ -3,14 +3,6 @@
 #include "TridagPar.h"
 #include <vector>
 
-void printArray(vector<REAL> arr) {
-    printf("[");
-    for (const auto& elem : arr) {
-        printf("%f, ", elem);
-    }
-    printf("]\n");
-}
-
 void
 rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& myResult, const unsigned int outer) {
     unsigned numX = globs.myX.size(),
@@ -92,15 +84,15 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
     }
 }
 
-void   run_OrigCPU(  
+void   run_OrigCPU(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
                 const unsigned int&   numY,
                 const unsigned int&   numT,
                 const REAL&           s0,
-                const REAL&           t, 
-                const REAL&           alpha, 
-                const REAL&           nu, 
+                const REAL&           t,
+                const REAL&           alpha,
+                const REAL&           nu,
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
 ) {
