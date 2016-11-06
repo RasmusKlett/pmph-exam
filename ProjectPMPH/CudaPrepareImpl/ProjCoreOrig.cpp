@@ -52,7 +52,9 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
                 u[o][y][x] += v[o][x][y];
             }
         }
+    }
 
+    for(o = 0; o < outer; o++) {
         //  implicit x
         for(y = 0; y < numY; y++) {
             for(x = 0; x < numX; x++) {  // here a, b,c should have size [numX]
@@ -63,7 +65,9 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
             // here yy should have size [numX]
             tridagPar(a[o][y],b[o][y],c[o][y],u[o][y],numX,u[o][y],yy[o][y]);
         }
-
+    }
+    
+    for(o = 0; o < outer; o++) {
         //  implicit y
         for(x = 0; x < numX; x++) {
             for(y = 0; y < numY; y++) {  // here a, b, c should have size [numY]
