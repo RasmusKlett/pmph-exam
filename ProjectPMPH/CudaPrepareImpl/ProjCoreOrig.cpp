@@ -106,22 +106,24 @@ void   run_OrigCPU(
 
     for( unsigned o = 0; o < outer; ++ o ) {
         for(unsigned x = 0; x < globs.myX.size(); ++x) {
+            REAL v = max(globs.myX[x]-(0.001*o), (REAL)0.0);
             for(unsigned y = 0; y < globs.myY.size(); ++y) {
-                myResult[o][x][y] = max(globs.myX[x]-(0.001*o), (REAL)0.0);;
+                myResult[o][x][y] = v;
             }
         }
     }
 
     for(int g = globs.myTimeline.size()-2;g>=0;--g) {
+        REAL nu2t = 0.5*nu*nu*globs.myTimeline[g];
         for(unsigned x = 0; x < globs.myX.size(); ++x) {
             for(unsigned y = 0; y < globs.myY.size(); ++y) {
                 globs.myVarX[x][y] = exp(2.0*(  beta*log(globs.myX[x])
                                               + globs.myY[y]
-                                              - 0.5*nu*nu*globs.myTimeline[g] )
+                                              - nu2t)
                                         );
                 globs.myVarY[x][y] = exp(2.0*(  alpha*log(globs.myX[x])
                                               + globs.myY[y]
-                                              - 0.5*nu*nu*globs.myTimeline[g] )
+                                              - nu2t)
                                         ); // nu*nu
             }
         }
