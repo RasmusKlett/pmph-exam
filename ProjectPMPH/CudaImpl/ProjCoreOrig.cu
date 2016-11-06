@@ -25,11 +25,8 @@ rollback(
                 REAL* d_myDyy,
                 REAL* d_u,
                 REAL* d_v,
-                REAL* d_a,
-                REAL* d_b,
                 REAL* d_c,
                 REAL* d_yy,
-                REAL* d__y,
                 const unsigned int outer
 ) {
     unsigned numX = globs.myX.size(),
@@ -47,8 +44,8 @@ rollback(
     dim3 gridOY(dimO, dimY, 1);
 
     initUAndV2Dim<<<gridOX, block>>>(d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult, outer, numX, numY, dtInv);
-    tridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_a, d_b, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
-    tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_a, d_b, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d__y, d_myResult);
+    tridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
+    tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d_myResult);
 }
 
 void   run_OrigCPU(
@@ -85,14 +82,10 @@ void   run_OrigCPU(
     cudaErrchkAPI(cudaMalloc((void**)&d_v, myResultSize));
     cudaErrchkAPI(cudaMalloc((void**)&d_myResult, myResultSize));
 
-    REAL *d_a, *d_b, *d_c;
-    cudaErrchkAPI(cudaMalloc((void**)&d_a, outer * numZ * numZ * sizeof(REAL)));
-    cudaErrchkAPI(cudaMalloc((void**)&d_b, outer * numZ * numZ * sizeof(REAL)));
+    REAL *d_c;
     cudaErrchkAPI(cudaMalloc((void**)&d_c, outer * numZ * numZ * sizeof(REAL)));
     REAL *d_yy;
     cudaErrchkAPI(cudaMalloc((void**)&d_yy, outer * numZ * numZ * sizeof(REAL)));
-    REAL *d__y;
-    cudaErrchkAPI(cudaMalloc((void**)&d__y, outer * numZ * numZ * sizeof(REAL)));
 
     /* Copy initial required data to device */
     copy2DVec(d_myDxx, globs.myDxx, cudaMemcpyHostToDevice);
@@ -116,7 +109,7 @@ void   run_OrigCPU(
             myVarXYKernel<<<gridXY, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
             cudaErrchkKernelAndSync();
         }
-        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_a, d_b, d_c, d_yy, d__y, outer);
+        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_c, d_yy, outer);
     }
 
     {
@@ -143,11 +136,8 @@ void   run_OrigCPU(
     cudaErrchkAPI(cudaFree(d_u));
     cudaErrchkAPI(cudaFree(d_v));
 
-    cudaErrchkAPI(cudaFree(d_a));
-    cudaErrchkAPI(cudaFree(d_b));
     cudaErrchkAPI(cudaFree(d_c));
     cudaErrchkAPI(cudaFree(d_yy));
-    cudaErrchkAPI(cudaFree(d__y));
 }
 
 //#endif // PROJ_CORE_ORIG

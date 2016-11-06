@@ -128,7 +128,7 @@ __device__ inline void tridagDevice1(
 
 __global__ void tridag1(
     const int outer, const int numX, const int numY, const int numZ,
-    REAL *a, REAL *b, REAL *c,
+    REAL *c,
     REAL dtInv,
     REAL *myVarX, REAL *myDxx,
     REAL *u, REAL *yy
@@ -137,64 +137,46 @@ __global__ void tridag1(
     int y = threadIdx.y + blockDim.y*blockIdx.y;
 
     if (o < outer && y < numY) {
-        for(int x = 0; x < numX; x++) {
-            // here a, b,c should have size [numX]
-            a[o + y * outer + x * numZ * outer] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 0]);
-            b[o + y * outer + x * numZ * outer] = dtInv - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 1]);
-            c[o + y * outer + x * numZ * outer] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 2]);
+
+        // Inlined tridag
+        c = c + (o + y * outer);
+        REAL* r = u + (o + y * numX * outer);
+        u = u + (o + y * numX * outer);
+        yy = yy + (o + y * outer);
+
+        REAL   beta;
+
+        u[0]  = r[0];
+        yy[0] = dtInv - 0.5*(0.5*myVarX[y]*myDxx[1]);
+
+        for(int x=1; x<numX; x++) {
+            REAL aV =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 0]);
+            REAL bV = dtInv - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 1]);
+            REAL cV =       - 0.5*(0.5*myVarX[(x-1) * numY + y]*myDxx[(x-1) * 4 + 2]);
+
+            // Write this in loop, it is not worth it to recalculate in following loop
+            c[x * numZ * outer] = cV;
+
+            beta  = aV / yy[(x-1) * numZ * outer];
+
+            yy[x * numZ * outer] = bV - beta*cV;
+            u[x * outer]  = r[x*outer] - beta*u[(x-1) * outer];
         }
 
-        // here yy should have size [numX]
-        tridagDevice1(
-            a + (o + y * outer),
-            b + (o + y * outer),
-            c + (o + y * outer),
-            u + (o + y * numX * outer),
-            numX,
-            u + (o + y * numX * outer),
-            yy+ (o + y * outer),
-            numZ * outer,
-            outer
-        );
-    }
-}
-
-__device__ inline void tridagDevice2(
-    REAL*   a,   // size [n]
-    REAL*   b,   // size [n]
-    REAL*   c,   // size [n]
-    REAL*   r,   // size [n] _y
-    const int n,
-    REAL*   u,   // size [n] myResult
-    REAL*   yy,   // size [n] temporary
-    const int mult // multiplier to index into arrays
-) {
-    int    i;
-    REAL   beta;
-
-    u[0]  = r[0];
-    yy[0] = b[0];
-
-    for(i=1; i<n; i++) {
-        beta  = a[i * mult] / yy[(i-1) * mult];
-
-        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
-        u[i*mult]  = r[i*mult] - beta*u[(i-1)*mult];
-    }
-
-    // X) this is a backward recurrence
-    u[(n-1)*mult] = u[(n-1)*mult] / yy[(n-1) * mult];
-    for(i=n-2; i>=0; i--) {
-        u[i*mult] = (u[i*mult] - c[i * mult]*u[(i+1)*mult]) / yy[i * mult];
+        // X) this is a backward recurrence
+        u[(numX-1)*outer] = u[(numX-1)*outer] / yy[(numX-1) * numZ * outer];
+        for(int x=numX-2; x>=0; x--) {
+            u[x*outer] = (u[x*outer] - c[(x+1) * numZ * outer]*u[(x+1)*outer]) / yy[x * numZ * outer];
+        }
     }
 }
 
 __global__ void tridag2(
     const int outer, const int numX, const int numY, const int numZ,
-    REAL *a, REAL *b, REAL *c,
+    REAL *c,
     REAL dtInv,
     REAL *myVarY, REAL *myDyy,
-    REAL *u, REAL *v, REAL *yy, REAL *_y, REAL *myResult
+    REAL *u, REAL *v, REAL *yy, REAL *myResult
     ) {
 
     int o = threadIdx.x + blockDim.x*blockIdx.x;
@@ -202,6 +184,7 @@ __global__ void tridag2(
 
     if (o < outer && x < numX) {
 
+        // Inlined tridag
         REAL* u_old = u;
         u = myResult + (o + x * numY * outer);
         yy = yy + o + x * numZ * outer;
@@ -209,7 +192,7 @@ __global__ void tridag2(
         REAL   beta;
 
         u[0]  = dtInv*u[(x*outer) + o] - 0.5*v[x * numY * outer + o];
-        yy[0] = b[0];
+        yy[0] = dtInv - 0.5*(0.5*myVarY[x * numY]*myDyy[1]);
 
         for(int y=1; y<numY; y++) {
             REAL aV = - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
