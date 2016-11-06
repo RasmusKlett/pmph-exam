@@ -17,8 +17,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
     vector<vector<vector<REAL> > > b(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
     vector<vector<vector<REAL> > > c(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
     vector<vector<vector<REAL> > > _y(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
-
-    vector<vector<REAL> > yy(outer, vector<REAL>(numZ));  // temporary used in tridag  // [max(numX,numY)]
+    vector<vector<vector<REAL> > > yy(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // temporary used in tridag // [outer][numZ][numZ]
 
     for( unsigned o = 0; o < outer; ++ o )
     {
@@ -63,7 +62,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
                 c[o][y][x] =       - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][2]);
             }
             // here yy should have size [numX]
-            tridagPar(a[o][y],b[o][y],c[o][y],u[o][y],numX,u[o][y],yy[o]);
+            tridagPar(a[o][y],b[o][y],c[o][y],u[o][y],numX,u[o][y],yy[o][y]);
         }
 
         //  implicit y
@@ -79,7 +78,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
             }
 
             // here yy should have size [numY]
-            tridagPar(a[o][x],b[o][x],c[o][x],_y[o][x],numY,myResult[o][x],yy[o]);
+            tridagPar(a[o][x],b[o][x],c[o][x],_y[o][x],numY,myResult[o][x],yy[o][x]);
         }
     }
 }
