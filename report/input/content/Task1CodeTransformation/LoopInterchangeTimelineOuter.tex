@@ -1,4 +1,4 @@
-\subsection{Loopinterchange}
+\subsection{Loop interchange}
 If we inline the function \textbf{value} into the main loop we get what Figure
 \ref{fig:inline_value} shows.
 
@@ -19,7 +19,7 @@ Figure \ref{fig:main_loopinterchange}.
 		\caption{The main loop where a loopinterchange has been performed.\label{fig:main_loopinterchange}}
 \end{figure}
 
-Our loopinterchange is safe \textbf{why?}.
+Our loopinterchange is safe since the loop over \emph{outer} is parallel.
 
 We note that \textbf{updateParams} is constant across all iterations of
 \emph{outer} and hence it can be extracted out of the loop. If we then inline
