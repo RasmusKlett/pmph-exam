@@ -27,7 +27,8 @@ rollback(
                 REAL* d_v,
                 REAL* d_c,
                 REAL* d_yy,
-                const unsigned int outer
+                const unsigned int outer,
+                const unsigned dim
 ) {
     unsigned numX = globs.myX.size(),
              numY = globs.myY.size();
@@ -35,15 +36,26 @@ rollback(
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     /*      Call kernel  */
-    unsigned dim = 32;
-    int dimO = ceil( ((float)outer) / dim );
-    int dimX = ceil( ((float)numX) / dim );
-    int dimY = ceil( ((float)numY) / dim );
+    //bool is_3D = outer < 32;
+    const bool is_3D = false; // It seems 3D is always faster
+
+    int dimO = ceil( ((float)outer) / (is_3D ? 16 : dim ));
+    int dimX = ceil( ((float)numX) / (is_3D ? 8 : dim ));
+    int dimY = ceil( ((float)numY) / (is_3D ? 8 : dim ));
 
     dim3 block(dim, dim, 1), gridOX(dimO, dimX, 1);
     dim3 gridOY(dimO, dimY, 1);
+    if (is_3D) {
+        dim3 block3D(16, 8, 8), gridOXY(dimO, dimX, dimY);
+        initUAndV3Dim<<<gridOXY, block3D>>>
+            (d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult,
+             outer, numX, numY, dtInv);
+    } else {
+        initUAndV2Dim<<<gridOX, block>>>
+            (d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult,
+             outer, numX, numY, dtInv);
+    }
 
-    initUAndV2Dim<<<gridOX, block>>>(d_u, d_v, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_myResult, outer, numX, numY, dtInv);
     tridag1<<<gridOY, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarX, d_myDxx, d_u, d_yy);
     tridag2<<<gridOX, block>>>(outer, numX, numY, numZ, d_c, dtInv, d_myVarY, d_myDyy, d_u, d_v, d_yy, d_myResult);
 }
@@ -140,7 +152,7 @@ void   run_OrigCPU(
             myVarXYKernel<<<gridXY, block>>>(numX, numY, beta, nu2t, alpha, d_myX, d_myY, d_myVarX, d_myVarY);
             cudaErrchkKernelAndSync();
         }
-        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_c, d_yy, outer);
+        rollback(g, globs, d_myResult, d_myVarX, d_myVarY, d_myDxx, d_myDyy, d_u, d_v, d_c, d_yy, outer, dim);
     }
 
     {

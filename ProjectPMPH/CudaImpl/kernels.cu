@@ -1,3 +1,73 @@
+__device__ inline void initUAndV (
+                    REAL* u,
+                    REAL* v,
+                    REAL* myVarX,
+                    REAL* myVarY,
+                    REAL* myDxx,
+                    REAL* myDyy,
+                    REAL* myResult,
+                    const int outer,
+                    const int numX,
+                    const int numY,
+                    REAL dtInv,
+                    const int o,
+                    const int x, 
+                    const int y
+) {
+    REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
+
+    if (x > 0) {
+        u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
+            * myResult[((x-1)*numY*outer) + (y*outer) + o];
+    }
+    u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
+        * myResult[(x*numY*outer) + (y*outer) + o];
+    if (x < numX - 1) {
+        u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
+            * myResult[((x+1)*numY*outer) + (y*outer) + o];
+    }
+
+    // explicit y
+    REAL v_new = 0.0;
+    if(y > 0) {
+        v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
+            *  myResult[(x*numY*outer) + ((y-1)*outer) + o];
+    }
+    v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
+        *  myResult[(x*numY*outer) + (y*outer) + o];
+    if(y < numY - 1) {
+        v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
+            *  myResult[(x*numY*outer) + ((y+1)*outer) + o];
+    }
+    v[(x*numY*outer) + (y*outer) + o] = v_new;
+    u[(y*numX*outer) + (x*outer) + o] = u_new + v_new;
+}
+
+__global__ void initUAndV3Dim (
+                    REAL* u,
+                    REAL* v,
+                    REAL* myVarX,
+                    REAL* myVarY,
+                    REAL* myDxx,
+                    REAL* myDyy,
+                    REAL* myResult,
+                    const int outer,
+                    const int numX,
+                    const int numY,
+                    REAL dtInv
+) {
+    int o = blockIdx.x*blockDim.x + threadIdx.x;
+    int x = blockIdx.y*blockDim.y + threadIdx.y;
+    int y = blockIdx.z*blockDim.z + threadIdx.z;
+    if (o < outer && x < numX && y < numY) {
+        initUAndV(
+            u, v, myVarX, myVarY, myDxx, myDyy, myResult,
+            outer, numX, numY, dtInv,
+            o, x, y
+        );
+    }
+}
+
 __global__ void initUAndV2Dim (
                     REAL* u,
                     REAL* v,
@@ -16,35 +86,11 @@ __global__ void initUAndV2Dim (
 
     if (o < outer && x < numX) {
         for(int y = 0; y < numY; y++) {
-
-            // explicit x
-            REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
-
-            if (x > 0) {
-                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
-                            * myResult[((x-1)*numY*outer) + (y*outer) + o];
-            }
-            u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
-                        * myResult[(x*numY*outer) + (y*outer) + o];
-            if (x < numX - 1) {
-                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
-                            * myResult[((x+1)*numY*outer) + (y*outer) + o];
-            }
-
-            // explicit y
-            REAL v_new = 0.0;
-            if(y > 0) {
-                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
-                    *  myResult[(x*numY*outer) + ((y-1)*outer) + o];
-            }
-            v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
-                *  myResult[(x*numY*outer) + (y*outer) + o];
-            if(y < numY - 1) {
-                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
-                    *  myResult[(x*numY*outer) + ((y+1)*outer) + o];
-            }
-            v[(x*numY*outer) + (y*outer) + o] = v_new;
-            u[(y*numX*outer) + (x*outer) + o] = u_new + v_new;
+            initUAndV(
+                u, v, myVarX, myVarY, myDxx, myDyy, myResult,
+                outer, numX, numY, dtInv,
+                o, x, y
+            );
         }
     }
 }
