@@ -18,8 +18,6 @@ __global__ void initUAndV2Dim (
         for(unsigned y = 0; y < numY; y++) {
 
             // explicit x
-            unsigned uIdx_oyx = (o*numY * numX) + (y*numX) + x;
-
             REAL u_new = dtInv * myResult[(o*numX*numY) + (x*numY) + y];
 
             if (x > 0) {
@@ -34,7 +32,6 @@ __global__ void initUAndV2Dim (
             }
 
             // explicit y
-            unsigned vIdx_oxy = (o*numX*numY) + (x*numY) + y;
             REAL v_new = 0.0;
             if(y > 0) {
                 v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
@@ -46,8 +43,8 @@ __global__ void initUAndV2Dim (
                 v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
                     *  myResult[(o*numX*numY) + (x*numY) + y+1];
             }
-            v[vIdx_oxy] = v_new;
-            u[uIdx_oyx] = u_new + v_new;
+            v[(x*numY*outer) + (y*outer) + o] = v_new;
+            u[(o*numY * numX) + (y*numX) + x] = u_new + v_new;
         }
     }
 }
@@ -97,14 +94,15 @@ __global__ void buildResultKernel(
     }
 }
 
-__device__ inline void tridagDevice(
+__device__ inline void tridagDevice1(
     REAL*   a,   // size [n]
     REAL*   b,   // size [n]
     REAL*   c,   // size [n]
     REAL*   r,   // size [n]
     const int n,
     REAL*   u,   // size [n]
-    REAL*   yy   // size [n] temporary
+    REAL*   yy,   // size [n] temporary
+    const int mult // multiplier to index into arrays
 ) {
     int    i;
     REAL   beta;
@@ -113,20 +111,20 @@ __device__ inline void tridagDevice(
     yy[0] = b[0];
 
     for(i=1; i<n; i++) {
-        beta  = a[i] / yy[i-1];
+        beta  = a[i * mult] / yy[(i-1) * mult];
 
-        yy[i] = b[i] - beta*c[i-1];
+        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
         u[i]  = r[i] - beta*u[i-1];
     }
 
     // X) this is a backward recurrence
-    u[n-1] = u[n-1] / yy[n-1];
+    u[n-1] = u[n-1] / yy[(n-1) * mult];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i]*u[i+1]) / yy[i];
+        u[i] = (u[i] - c[i * mult]*u[i+1]) / yy[i * mult];
     }
 }
 
-__device__ inline void tridagDeviceTrans(
+__device__ inline void tridagDevice2(
     REAL*   a,   // size [n]
     REAL*   b,   // size [n]
     REAL*   c,   // size [n]
@@ -175,7 +173,7 @@ __global__ void tridag1(
         }
 
         // here yy should have size [numX]
-        tridagDeviceTrans(
+        tridagDevice1(
             a + (o + y * outer),
             b + (o + y * outer),
             c + (o + y * outer),
@@ -209,21 +207,19 @@ __global__ void tridag2(
         }
 
         for(unsigned y = 0; y < numY; y++) {
-            // _y[ox_idx_zo+y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
-            _y[o * numZ * numZ + x * numZ + y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[o * numX * numY + x * numY + y];
+            _y[o * numZ * numZ + x * numZ + y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[x * numY * outer + y * outer + o];
         }
 
         // here yy should have size [numY]
-        tridagDeviceTrans(
+        tridagDevice2(
             a + (ox_idx_zo),
             b + (ox_idx_zo),
             c + (ox_idx_zo),
             _y+ (o * numZ * numZ + x * numZ),
             numY,
             myResult + (o * numX * numY + x * numY),
-            yy+ (ox_idx_zo),
+            yy + (ox_idx_zo),
             outer
         );
-        
     }
 }
