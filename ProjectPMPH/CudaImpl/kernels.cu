@@ -1,3 +1,73 @@
+__device__ inline void initUAndV (
+                    REAL* u,
+                    REAL* v,
+                    REAL* myVarX,
+                    REAL* myVarY,
+                    REAL* myDxx,
+                    REAL* myDyy,
+                    REAL* myResult,
+                    const int outer,
+                    const int numX,
+                    const int numY,
+                    REAL dtInv,
+                    const int o,
+                    const int x, 
+                    const int y
+) {
+    REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
+
+    if (x > 0) {
+        u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
+            * myResult[((x-1)*numY*outer) + (y*outer) + o];
+    }
+    u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
+        * myResult[(x*numY*outer) + (y*outer) + o];
+    if (x < numX - 1) {
+        u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
+            * myResult[((x+1)*numY*outer) + (y*outer) + o];
+    }
+
+    // explicit y
+    REAL v_new = 0.0;
+    if(y > 0) {
+        v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
+            *  myResult[(x*numY*outer) + ((y-1)*outer) + o];
+    }
+    v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
+        *  myResult[(x*numY*outer) + (y*outer) + o];
+    if(y < numY - 1) {
+        v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
+            *  myResult[(x*numY*outer) + ((y+1)*outer) + o];
+    }
+    v[(x*numY*outer) + (y*outer) + o] = v_new;
+    u[(y*numX*outer) + (x*outer) + o] = u_new + v_new;
+}
+
+__global__ void initUAndV3Dim (
+                    REAL* u,
+                    REAL* v,
+                    REAL* myVarX,
+                    REAL* myVarY,
+                    REAL* myDxx,
+                    REAL* myDyy,
+                    REAL* myResult,
+                    const int outer,
+                    const int numX,
+                    const int numY,
+                    REAL dtInv
+) {
+    int o = blockIdx.x*blockDim.x + threadIdx.x;
+    int x = blockIdx.y*blockDim.y + threadIdx.y;
+    int y = blockIdx.z*blockDim.z + threadIdx.z;
+    if (o < outer && x < numX && y < numY) {
+        initUAndV(
+            u, v, myVarX, myVarY, myDxx, myDyy, myResult,
+            outer, numX, numY, dtInv,
+            o, x, y
+        );
+    }
+}
+
 __global__ void initUAndV2Dim (
                     REAL* u,
                     REAL* v,
@@ -15,32 +85,37 @@ __global__ void initUAndV2Dim (
     int x = blockIdx.y*blockDim.y + threadIdx.y;
 
     if (o < outer && x < numX) {
+        REAL myDxx0 = myDxx[(x*4) + 0];
+        REAL myDxx1 = myDxx[(x*4) + 1];
+        REAL myDxx2 = myDxx[(x*4) + 2];
         for(int y = 0; y < numY; y++) {
 
             // explicit x
             REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
+            REAL varX = 0.5*myVarX[(x*numY) + y];
 
             if (x > 0) {
-                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
+                u_new += 0.5*(varX * myDxx0)
                             * myResult[((x-1)*numY*outer) + (y*outer) + o];
             }
-            u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
+            u_new += 0.5*( varX * myDxx1)
                         * myResult[(x*numY*outer) + (y*outer) + o];
             if (x < numX - 1) {
-                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
+                u_new += 0.5*( varX * myDxx2)
                             * myResult[((x+1)*numY*outer) + (y*outer) + o];
             }
 
             // explicit y
             REAL v_new = 0.0;
+            REAL varY = 0.5 * myVarY[(x*numY) + y];
             if(y > 0) {
-                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
+                v_new += ( varY * myDyy[(y*4) + 0])
                     *  myResult[(x*numY*outer) + ((y-1)*outer) + o];
             }
-            v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
+            v_new += ( varY * myDyy[(y*4) + 1])
                 *  myResult[(x*numY*outer) + (y*outer) + o];
             if(y < numY - 1) {
-                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
+                v_new += ( varY * myDyy[(y*4) + 2])
                     *  myResult[(x*numY*outer) + ((y+1)*outer) + o];
             }
             v[(x*numY*outer) + (y*outer) + o] = v_new;
@@ -95,37 +170,8 @@ __global__ void buildResultKernel(
     }
 }
 
-__device__ inline void tridagDevice1(
-    REAL*   a,   // size [n]
-    REAL*   b,   // size [n]
-    REAL*   c,   // size [n]
-    REAL*   r,   // size [n] u
-    const int n,
-    REAL*   u,   // size [n] u
-    REAL*   yy,   // size [n] temporary
-    const int mult,  // multiplier to index into arrays
-    const int multU
-) {
-    int    i;
-    REAL   beta;
-
-    u[0]  = r[0];
-    yy[0] = b[0];
-
-    for(i=1; i<n; i++) {
-        beta  = a[i * mult] / yy[(i-1) * mult];
-
-        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
-        u[i * multU]  = r[i*multU] - beta*u[(i-1) * multU];
-    }
-
-    // X) this is a backward recurrence
-    u[(n-1)*multU] = u[(n-1)*multU] / yy[(n-1) * mult];
-    for(i=n-2; i>=0; i--) {
-        u[i*multU] = (u[i*multU] - c[i * mult]*u[(i+1)*multU]) / yy[i * mult];
-    }
-}
-
+// Sets up a, b, c and performs tridag. Calculation of a and b has been privatized, 
+// and c has been moved.
 __global__ void tridag1(
     const int outer, const int numX, const int numY, const int numZ,
     REAL *c,
@@ -171,6 +217,8 @@ __global__ void tridag1(
     }
 }
 
+// Sets up a, b, c, r and performs tridag. Calculation of a, b and r has
+// been privatized, and c has been moved.
 __global__ void tridag2(
     const int outer, const int numX, const int numY, const int numZ,
     REAL *c,
