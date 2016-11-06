@@ -20,33 +20,34 @@ __global__ void initUAndV2Dim (
             // explicit x
             unsigned uIdx_oyx = (o*numY * numX) + (y*numX) + x;
 
-            u[uIdx_oyx] = dtInv * myResult[(o*numX*numY) + (x*numY) + y];
+            REAL u_new = dtInv * myResult[(o*numX*numY) + (x*numY) + y];
 
             if (x > 0) {
-                u[uIdx_oyx] += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
+                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 0])
                             * myResult[(o*numX*numY) + ((x-1)*numY) + y];
             }
-            u[uIdx_oyx] += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
+            u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 1])
                         * myResult[(o*numX*numY) + (x*numY) + y];
             if (x < numX - 1) {
-                u[uIdx_oyx] += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
+                u_new += 0.5*( 0.5*myVarX[(x*numY) + y] * myDxx[(x*4) + 2])
                             * myResult[(o*numX*numY) + ((x+1)*numY) + y];
             }
 
             // explicit y
             unsigned vIdx_oxy = (o*numX*numY) + (x*numY) + y;
-            v[vIdx_oxy] = 0.0;
+            REAL v_new = 0.0;
             if(y > 0) {
-                v[vIdx_oxy] += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
+                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 0])
                     *  myResult[(o*numX*numY) + (x*numY) + y-1];
             }
-            v[vIdx_oxy] += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
+            v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 1])
                 *  myResult[(o*numX*numY) + (x*numY) + y];
             if(y < numY - 1) {
-                v[vIdx_oxy] += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
+                v_new += ( 0.5*myVarY[(x*numY) + y] * myDyy[(y*4) + 2])
                     *  myResult[(o*numX*numY) + (x*numY) + y+1];
             }
-            u[uIdx_oyx] += v[vIdx_oxy];
+            v[vIdx_oxy] = v_new;
+            u[uIdx_oyx] = u_new + v_new;
         }
     }
 }
