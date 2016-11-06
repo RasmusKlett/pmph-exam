@@ -6,16 +6,16 @@ __global__ void initUAndV2Dim (
                     REAL* myDxx,
                     REAL* myDyy,
                     REAL* myResult,
-                    unsigned outer,
-                    unsigned numX,
-                    unsigned numY,
+                    const int outer,
+                    const int numX,
+                    const int numY,
                     REAL dtInv
 ) {
     int o = blockIdx.x*blockDim.x + threadIdx.x;
     int x = blockIdx.y*blockDim.y + threadIdx.y;
 
     if (o < outer && x < numX) {
-        for(unsigned y = 0; y < numY; y++) {
+        for(int y = 0; y < numY; y++) {
 
             // explicit x
             REAL u_new = dtInv * myResult[(x*numY*outer) + (y*outer) + o];
@@ -49,20 +49,20 @@ __global__ void initUAndV2Dim (
     }
 }
 
-__global__ void myResultKernel2D(unsigned int outer, unsigned int numX, unsigned int numY, REAL *myX, REAL *myResult) {
+__global__ void myResultKernel2D(const int outer, const int numX, const int numY, REAL *myX, REAL *myResult) {
 	int o = threadIdx.x + blockDim.x*blockIdx.x;
   	int x = threadIdx.y + blockDim.y*blockIdx.y;
 
   	if (o < outer && x < numX) {
   		REAL v = max(myX[x]-(0.001*o), (REAL)0.0);
-        for(unsigned y = 0; y < numY; y++) {
+        for(int y = 0; y < numY; y++) {
             myResult[(x*numY*outer) + (y*outer) + o] = v;
         }
 	}
 }
 
 __global__ void myVarXYKernel(
-	unsigned int numX, unsigned int numY,
+	const int numX, const int numY,
 	REAL beta, REAL nu2t, REAL alpha,
 	REAL *myX, REAL *myY,
 	REAL *myVarX, REAL *myVarY
@@ -83,11 +83,11 @@ __global__ void myVarXYKernel(
 }
 
 __global__ void buildResultKernel(
-	unsigned int outer, unsigned int numX, unsigned int numY,
-	unsigned int myXindex, unsigned int myYindex,
+	const int outer, const int numX, const int numY,
+	const int myXindex, const int myYindex,
 	REAL *res, REAL *myResult
 	) {
-	const unsigned int o = threadIdx.x + blockDim.x * blockIdx.x;
+	const int o = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (o < outer) {
         res[o] = myResult[o * numX * numY + myXindex * numY + myYindex];
@@ -127,7 +127,7 @@ __device__ inline void tridagDevice1(
 }
 
 __global__ void tridag1(
-    unsigned int outer, unsigned int numX, unsigned int numY, unsigned int numZ,
+    const int outer, const int numX, const int numY, const int numZ,
     REAL *a, REAL *b, REAL *c,
     REAL dtInv,
     REAL *myVarX, REAL *myDxx,
@@ -137,7 +137,7 @@ __global__ void tridag1(
     int y = threadIdx.y + blockDim.y*blockIdx.y;
 
     if (o < outer && y < numY) {
-        for(unsigned x = 0; x < numX; x++) {
+        for(int x = 0; x < numX; x++) {
             // here a, b,c should have size [numX]
             a[o + y * outer + x * numZ * outer] =       - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 0]);
             b[o + y * outer + x * numZ * outer] = dtInv - 0.5*(0.5*myVarX[x * numY + y]*myDxx[x * 4 + 1]);
@@ -190,7 +190,7 @@ __device__ inline void tridagDevice2(
 }
 
 __global__ void tridag2(
-    unsigned int outer, unsigned int numX, unsigned int numY, unsigned int numZ,
+    const int outer, const int numX, const int numY, const int numZ,
     REAL *a, REAL *b, REAL *c,
     REAL dtInv,
     REAL *myVarY, REAL *myDyy,
@@ -202,14 +202,14 @@ __global__ void tridag2(
 
     if (o < outer && x < numX) {
         int ox_idx_zo = o + x * numZ * outer;
-        for(unsigned y = 0; y < numY; y++) {
+        for(int y = 0; y < numY; y++) {
             // here a, b, c should have size [numY]
             a[ox_idx_zo + y * outer] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 0]);
             b[ox_idx_zo + y * outer] = dtInv - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 1]);
             c[ox_idx_zo + y * outer] =       - 0.5*(0.5*myVarY[x * numY + y]*myDyy[y * 4 + 2]);
         }
 
-        for(unsigned y = 0; y < numY; y++) {
+        for(int y = 0; y < numY; y++) {
             _y[(x*numZ*outer) + (y*outer) + o] = dtInv*u[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
         }
 
