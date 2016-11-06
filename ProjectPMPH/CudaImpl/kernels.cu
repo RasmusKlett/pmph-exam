@@ -44,7 +44,7 @@ __global__ void initUAndV2Dim (
                     *  myResult[(o*numX*numY) + (x*numY) + y+1];
             }
             v[(x*numY*outer) + (y*outer) + o] = v_new;
-            u[(o*numY * numX) + (y*numX) + x] = u_new + v_new;
+            u[(y*numX*outer) + (x*outer) + o] = u_new + v_new;
         }
     }
 }
@@ -98,11 +98,12 @@ __device__ inline void tridagDevice1(
     REAL*   a,   // size [n]
     REAL*   b,   // size [n]
     REAL*   c,   // size [n]
-    REAL*   r,   // size [n]
+    REAL*   r,   // size [n] u
     const int n,
-    REAL*   u,   // size [n]
+    REAL*   u,   // size [n] u
     REAL*   yy,   // size [n] temporary
-    const int mult // multiplier to index into arrays
+    const int mult,  // multiplier to index into arrays
+    const int multU
 ) {
     int    i;
     REAL   beta;
@@ -114,43 +115,13 @@ __device__ inline void tridagDevice1(
         beta  = a[i * mult] / yy[(i-1) * mult];
 
         yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
-        u[i]  = r[i] - beta*u[i-1];
+        u[i * multU]  = r[i*multU] - beta*u[(i-1) * multU];
     }
 
     // X) this is a backward recurrence
-    u[n-1] = u[n-1] / yy[(n-1) * mult];
+    u[(n-1)*multU] = u[(n-1)*multU] / yy[(n-1) * mult];
     for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i * mult]*u[i+1]) / yy[i * mult];
-    }
-}
-
-__device__ inline void tridagDevice2(
-    REAL*   a,   // size [n]
-    REAL*   b,   // size [n]
-    REAL*   c,   // size [n]
-    REAL*   r,   // size [n]
-    const int n,
-    REAL*   u,   // size [n]
-    REAL*   yy,   // size [n] temporary
-    const int mult // multiplier to index into arrays
-) {
-    int    i;
-    REAL   beta;
-
-    u[0]  = r[0];
-    yy[0] = b[0];
-
-    for(i=1; i<n; i++) {
-        beta  = a[i * mult] / yy[(i-1) * mult];
-
-        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
-        u[i]  = r[i] - beta*u[i-1];
-    }
-
-    // X) this is a backward recurrence
-    u[n-1] = u[n-1] / yy[(n-1) * mult];
-    for(i=n-2; i>=0; i--) {
-        u[i] = (u[i] - c[i * mult]*u[i+1]) / yy[i * mult];
+        u[i*multU] = (u[i*multU] - c[i * mult]*u[(i+1)*multU]) / yy[i * mult];
     }
 }
 
@@ -177,12 +148,43 @@ __global__ void tridag1(
             a + (o + y * outer),
             b + (o + y * outer),
             c + (o + y * outer),
-            u + (o * numX * numY + y * numX),
+            u + (o + y * numX * outer),
             numX,
-            u + (o * numX * numY + y * numX),
+            u + (o + y * numX * outer),
             yy+ (o + y * outer),
-            numZ * outer
+            numZ * outer,
+            outer
         );
+    }
+}
+
+__device__ inline void tridagDevice2(
+    REAL*   a,   // size [n]
+    REAL*   b,   // size [n]
+    REAL*   c,   // size [n]
+    REAL*   r,   // size [n] _y
+    const int n,
+    REAL*   u,   // size [n] myResult
+    REAL*   yy,   // size [n] temporary
+    const int mult // multiplier to index into arrays
+) {
+    int    i;
+    REAL   beta;
+
+    u[0]  = r[0];
+    yy[0] = b[0];
+
+    for(i=1; i<n; i++) {
+        beta  = a[i * mult] / yy[(i-1) * mult];
+
+        yy[i * mult] = b[i * mult] - beta*c[(i-1) * mult];
+        u[i]  = r[i] - beta*u[(i-1)];
+    }
+
+    // X) this is a backward recurrence
+    u[(n-1)] = u[(n-1)] / yy[(n-1) * mult];
+    for(i=n-2; i>=0; i--) {
+        u[i] = (u[i] - c[i * mult]*u[(i+1)]) / yy[i * mult];
     }
 }
 
@@ -207,7 +209,7 @@ __global__ void tridag2(
         }
 
         for(unsigned y = 0; y < numY; y++) {
-            _y[o * numZ * numZ + x * numZ + y] = dtInv*u[o * numY * numX + y * numX + x] - 0.5*v[x * numY * outer + y * outer + o];
+            _y[o * numZ * numZ + x * numZ + y] = dtInv*u[(y*numX*outer) + (x*outer) + o] - 0.5*v[x * numY * outer + y * outer + o];
         }
 
         // here yy should have size [numY]
@@ -215,7 +217,7 @@ __global__ void tridag2(
             a + (ox_idx_zo),
             b + (ox_idx_zo),
             c + (ox_idx_zo),
-            _y+ (o * numZ * numZ + x * numZ),
+            _y + (o * numZ * numZ + x * numZ),
             numY,
             myResult + (o * numX * numY + x * numY),
             yy + (ox_idx_zo),
