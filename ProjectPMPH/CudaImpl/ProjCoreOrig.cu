@@ -36,8 +36,7 @@ rollback(
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     /*      Call kernel  */
-    //bool is_3D = outer < 32;
-    const bool is_3D = false; // It seems 3D is always faster
+    const bool is_3D = outer * numX < 5000;
 
     int dimO = ceil( ((float)outer) / (is_3D ? 16 : dim ));
     int dimX = ceil( ((float)numX) / (is_3D ? 8 : dim ));
