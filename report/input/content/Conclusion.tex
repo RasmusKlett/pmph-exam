@@ -1,0 +1,10 @@
+\subsection{Conclusion}
+Having done the most significant transformations, we perform some smaller ones. Some reads and writes scattered throughout the kernel are the same, and the redundancy can be removed by moving the calculation to a single local variable. Performing these changes, and creating a 3D-version of the initUandV kernel to improve parallelism on the small and medium dataset, we obtain our final runtimes:
+
+\begin{tabular}{c|c}
+    Dataset & OpenMP time & CUDA time\\
+    \hline
+    Small & 0.259s & 0.088s
+    Medium & 0.323 & 0.136s
+    Large & 12.1s   & 1.27s
+\end{tabular}
