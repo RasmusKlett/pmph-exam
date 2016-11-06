@@ -23,33 +23,34 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
         for(x = 0; x < numX; x ++) {
             for(y = 0; y < numY; y++) {
                 // explicit x
-                u[o][y][x] = dtInv*myResult[o][x][y];
+                REAL u_new = dtInv*myResult[o][x][y];
 
                 if(x > 0) {
-                  u[o][y][x] += 0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][0] )
-                                * myResult[o][x-1][y];
+                  u_new += 0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][0] )
+                            * myResult[o][x-1][y];
                 }
-                u[o][y][x]  +=  0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][1] )
-                                * myResult[o][x][y];
+                u_new  +=  0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][1] )
+                            * myResult[o][x][y];
                 if(x < numX-1) {
-                  u[o][y][x] += 0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][2] )
-                                * myResult[o][x+1][y];
+                  u_new += 0.5*( 0.5*globs.myVarX[x][y]*globs.myDxx[x][2] )
+                            * myResult[o][x+1][y];
                 }
 
                 // explicit y
-                v[o][x][y] = 0.0;
+                REAL v_new = 0.0;
 
                 if(y > 0) {
-                  v[o][x][y] +=  ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][0] )
-                             *  myResult[o][x][y-1];
+                  v_new +=  ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][0] )
+                         *  myResult[o][x][y-1];
                 }
-                v[o][x][y]  +=   ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][1] )
-                             *  myResult[o][x][y];
+                v_new  +=   ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][1] )
+                         *  myResult[o][x][y];
                 if(y < numY-1) {
-                  v[o][x][y] +=  ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][2] )
-                             *  myResult[o][x][y+1];
+                  v_new +=  ( 0.5*globs.myVarY[x][y]*globs.myDyy[y][2] )
+                         *  myResult[o][x][y+1];
                 }
-                u[o][y][x] += v[o][x][y];
+                v[o][x][y] = v_new;
+                u[o][y][x] = u_new + v_new;
             }
         }
     }
