@@ -1,0 +1,11 @@
+\subsection{Inlining tridag}
+Looking at a profiling of the large dataset we determine what is the bottleneck now the coalescing is not the main factor:
+
+\begin{tabular}{c|c}
+    tridag1 & 650ms\\
+    tridag2 & 764ms\\
+    initUandV2Dim & 391ms
+\end{tabular}
+
+We see that the tridag functions is the main bottleneck. These perform calculation of a, b, c and _y, as well as the sequential version of tridag in each dimension. We observe that each kernel's call to tridag only accesses the row (now transposed) which it just wrote to, eliminating any dependencies. Thus, the arrays a, b and c can be removed in favour of simply calculating the values at the point of use. Values from array a and b are only read once, so removing these arrays does not come at any cost. Values from array c however, are used twice. By benchmarking we determine that it is not worth it to calculate these twice to eliminate the array, so this array is kept. 
+\par For tridag2, the same logic is applied to the array _y, and so this is also removed. With these changes the runtime of tridag1 and 2 are reduced to around 484ms, for a total runtime on large of 1.35 seconds.
