@@ -20,7 +20,8 @@ Figure \ref{fig:main_loopinterchange}.
 \end{figure}
 
 Our loopinterchange is safe since the loop over \emph{outer} is parallel.
-
+The final loop, writing to \emph{res} is translated into the
+\textbf{buildResultKernel} kernel in the CUDA version.
 We note that \textbf{updateParams} is constant across all iterations of
 \emph{outer} and hence it can be extracted out of the loop. If we then inline
 \textbf{updateParams} we get a loopnest that is ready to become a kernel.
@@ -34,5 +35,6 @@ This code transformation can be seen in Figure \ref{fig:inline_updateparams}.
 
 It makes it more clear that the inlined
 code is parallelized for a CUDA kernel, as there are no cross iteration
-dependencies. We note that part of the computation is constant across each
+dependencies and is translated into the \textbf{myVarXYKernel} kernel in our
+CUDA version. We note that part of the computation is constant across each
 iteration of the two inner dimensions.
