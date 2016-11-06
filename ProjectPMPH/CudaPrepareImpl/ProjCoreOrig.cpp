@@ -13,9 +13,9 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
 
     vector<vector<vector<REAL> > > u(outer, vector<vector<REAL> > (numY, vector<REAL>(numX))); // [outer][numY][numX]
     vector<vector<vector<REAL> > > v(outer, vector<vector<REAL> > (numX, vector<REAL>(numY))); // [outer][numX][numY]
-    vector<REAL> a(numZ); // [max(numX,numY)]
-    vector<REAL> b(numZ); // [max(numX,numY)]
-    vector<REAL> c(numZ); // [max(numX,numY)]
+    vector<vector<vector<REAL> > > a(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
+    vector<vector<vector<REAL> > > b(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
+    vector<vector<vector<REAL> > > c(outer, vector<vector<REAL> > (numZ, vector<REAL>(numZ))); // [outer][numZ][numZ]
     vector<vector<REAL> > _y(outer, vector<REAL>(numZ)); // [outer][max(numX,numY)]
 
     vector<vector<REAL> > yy(outer, vector<REAL>(numZ));  // temporary used in tridag  // [max(numX,numY)]
@@ -58,20 +58,20 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
         //  implicit x
         for(y = 0; y < numY; y++) {
             for(x = 0; x < numX; x++) {  // here a, b,c should have size [numX]
-                a[x] =       - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][0]);
-                b[x] = dtInv - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][1]);
-                c[x] =       - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][2]);
+                a[o][y][x] =       - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][0]);
+                b[o][y][x] = dtInv - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][1]);
+                c[o][y][x] =       - 0.5*(0.5*globs.myVarX[x][y]*globs.myDxx[x][2]);
             }
             // here yy should have size [numX]
-            tridagPar(a,b,c,u[o][y],numX,u[o][y],yy[o]);
+            tridagPar(a[o][y],b[o][y],c[o][y],u[o][y],numX,u[o][y],yy[o]);
         }
 
         //  implicit y
         for(x = 0; x < numX; x++) {
             for(y = 0; y < numY; y++) {  // here a, b, c should have size [numY]
-                a[y] =       - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][0]);
-                b[y] = dtInv - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][1]);
-                c[y] =       - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][2]);
+                a[o][x][y] =       - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][0]);
+                b[o][x][y] = dtInv - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][1]);
+                c[o][x][y] =       - 0.5*(0.5*globs.myVarY[x][y]*globs.myDyy[y][2]);
             }
 
             for(y = 0; y < numY; y++) {
@@ -79,7 +79,7 @@ rollback( const unsigned g, PrivGlobs& globs, vector<vector<vector<REAL > > >& m
             }
 
             // here yy should have size [numY]
-            tridagPar(a,b,c,_y[o],numY,myResult[o][x],yy[o]);
+            tridagPar(a[o][x],b[o][x],c[o][x],_y[o],numY,myResult[o][x],yy[o]);
         }
     }
 }
