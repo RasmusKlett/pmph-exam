@@ -1,0 +1,39 @@
+\subsection{Memory Coalescing}
+At this point it is interesting to benchmark the performance of the naive CUDA implementation resulting from this. As expected, this implementation is quite slow, taking 25 seconds on large, and the nVidia Profiler confirms that the culprit is uncoalesced memory access.\\
+The runtime is distributed across the kernels like so: \\
+\begin{tabular}{c|c}
+    tridag1 & 8.4s
+    tridag2 & 10.0s
+    initUandV2Dim & 7.1s
+\end{tabular}
+\par Since our kernels have the loop over \emph{outer} as their outermost loop, this index is the fastest-varying in the kernels.Therefore the O-index should be used in the innermost indexing into arrays to achieve coalescing. Looking at the dimensions of the arrays we write, this is not the case: 
+\begin{verbatim}
+a[O,X,Y]
+b[O,X,Y]
+c[O,X,Y]
+yy[O, X/Y, Y/X]
+_y[O,Z,Z]
+u[O,Y,X]
+v[O,X,Y]
+myResult[O,X,Y]
+\end{verbatim}
+
+We therefore need to transpose the arrays, but since these arrays are all written and read from the kernels, we can simply treat the arrays as transposed instead of actually performing transpositions. The indices can therefore be switched so the O-index is the innermost index: 
+
+\begin{verbatim}
+a[X,Y,O]
+b[X,Y,O]
+c[X,Y,O]
+yy[X/Y, Y/X,O]
+_y[Z,Z,O]
+u[Y,X,O]
+v[X,Y,O]
+myResult[O,X,Y]
+\end{verbatim}
+
+This provides a dramatic speedup, netting a runtime on large of 1.81 seconds.
+\begin{tabular}{c|c}
+    tridag1 & 8.4s
+    tridag2 & 10.0s
+    initUandV2Dim & 7.1s
+\end{tabular}
