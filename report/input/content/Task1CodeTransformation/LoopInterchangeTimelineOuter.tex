@@ -1,19 +1,10 @@
---
-timeline vs outer - loop interchanged after ...
-- loop interchangeability
-: Loop interchange is the concept of reordering the dimensions of a loop. And
-is ... MISSING
-By inlining the \textbf{value} function [show code] we can split the loop and
-perform the loop interchange between the two outer loops.
-We know that this transformation is safe in this case because MISSING
-
 \subsection{Loopinterchange}
 If we inline the function \textbf{value} into the main loop we get what Figure
 \ref{fig:inline_value} shows.
 
 \begin{figure}[!ht]
 	\centering
-		\includegraphics[scale=1]{input/figures/inline_value.png}
+		\includegraphics[scale=0.8]{input/figures/inline_value.png}
 		\caption{The main loop where \textbf{value} is inlined.\label{fig:inline_value}}
 \end{figure}
 
@@ -24,8 +15,24 @@ Figure \ref{fig:main_loopinterchange}.
 
 \begin{figure}[!ht]
 	\centering
-		\includegraphics[scale=1]{input/figures/main_loopinterchange.png}
+		\includegraphics[scale=0.8]{input/figures/main_loopinterchange.png}
 		\caption{The main loop where a loopinterchange has been performed.\label{fig:main_loopinterchange}}
 \end{figure}
 
 Our loopinterchange is safe \textbf{why?}.
+
+We note that \textbf{updateParams} is constant across all iterations of
+\emph{outer} and hence it can be extracted out of the loop. If we then inline
+\textbf{updateParams} we get a loopnest that is ready to become a kernel.
+This code transformation can be seen in Figure \ref{fig:inline_updateparams}.
+
+\begin{figure}[!ht]
+	\centering
+		\includegraphics[scale=0.75]{input/figures/inline_updateparams.png}
+		\caption{The main loop where \textbf{updateParams} is inlined.\label{fig:inline_updateparams}}
+\end{figure}
+
+It makes it more clear that the inlined
+code is parallelized for a CUDA kernel, as there are no cross iteration
+dependencies. We note that part of the computation is constant across each
+iteration of the two inner dimensions.
