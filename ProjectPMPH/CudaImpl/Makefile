@@ -1,6 +1,6 @@
 CXX        = nvcc
 LIB        = -L$(OPENCL_LIBDIR) -lOpenCL
-CXXFLAGS   = -O3 -DWITH_FLOATS=0 --std=c++11
+CXXFLAGS   = -lineinfo -O3 -DWITH_FLOATS=0 --std=c++11
 
 INCLUDES    += -I ../include
 GPU_OPTS   = -D lgWARP=5
@@ -9,7 +9,7 @@ SOURCES_CPP =ProjectMain.cu ProjHelperFun.cu ProjCoreOrig.cu kernels.cu
 HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h
 #OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
 EXECUTABLE  =runproject
-PROFILE_COMMAND =nvprof --profile-child-processes --analysis-metrics -o `git log -n 1 --pretty=format:"%h"`analysis%p.nvpp
+PROFILE_COMMAND =nvprof --profile-child-processes --analysis-metrics -o `git log -n 1 --pretty=format:"%h"`analysis%p.nvvp
 
 
 default: gpu
